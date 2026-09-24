@@ -1,0 +1,108 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ appbuilder.app_name }} - {{ _('Home') }}{% endblock %}
+{% block breadcrumb %} / {{ _('Home') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Welcome to') }} {{ appbuilder.app_name }}</h1>
+    <p class="plmsys-muted">
+        {{ _('Your Product Lifecycle Management workspace. Use the navigation to browse products, requirements, changes and configuration.') }}
+    </p>
+</div>
+
+{% if query_text %}
+<div class="plmsys-tile">
+    <h4><i class="fa fa-search"></i> {{ _('Results for') }} &ldquo;{{ query_text }}&rdquo;</h4>
+    {% if results %}
+        <table class="table table-condensed">
+            <thead>
+                <tr>
+                    <th>{{ _('Number') }}</th>
+                    <th>{{ _('Name') }}</th>
+                    <th>{{ _('Type') }}</th>
+                    <th>{{ _('Status') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in results %}
+                <tr>
+                    <td>{{ obj.object_number }}</td>
+                    <td>{{ obj.name }}</td>
+                    <td>{{ obj.object_type.name if obj.object_type else '' }}</td>
+                    <td>{{ obj.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="plmsys-muted">{{ _('No objects matched your search.') }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-2 col-sm-4">
+        <div class="plmsys-tile">
+            <div class="plmsys-kpi">{{ counts.objects }}</div>
+            <div class="plmsys-muted">{{ _('Business Objects') }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="plmsys-tile">
+            <div class="plmsys-kpi">{{ counts.revisions }}</div>
+            <div class="plmsys-muted">{{ _('Revisions') }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="plmsys-tile">
+            <div class="plmsys-kpi">{{ counts.requirements }}</div>
+            <div class="plmsys-muted">{{ _('Requirements') }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="plmsys-tile">
+            <div class="plmsys-kpi">{{ counts.baselines }}</div>
+            <div class="plmsys-muted">{{ _('Baselines') }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="plmsys-tile">
+            <div class="plmsys-kpi">{{ counts.open_tasks }}</div>
+            <div class="plmsys-muted">{{ _('Open Tasks') }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3 col-sm-6">
+        <a class="plmsys-tile" href="{{ url_for('BusinessObjectModelView.list') }}">
+            <h4><i class="fa fa-cube"></i> {{ _('Business Objects') }}</h4>
+            <span class="plmsys-muted">{{ _('Browse every product, part and document identity.') }}</span>
+        </a>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <a class="plmsys-tile" href="{{ url_for('RequirementModelView.list') }}">
+            <h4><i class="fa fa-list-alt"></i> {{ _('Requirements') }}</h4>
+            <span class="plmsys-muted">{{ _('Review and edit requirement objects.') }}</span>
+        </a>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <a class="plmsys-tile" href="{{ url_for('BaselineModelView.list') }}">
+            <h4><i class="fa fa-flag-checkered"></i> {{ _('Baselines') }}</h4>
+            <span class="plmsys-muted">{{ _('Frozen configuration snapshots.') }}</span>
+        </a>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <a class="plmsys-tile" href="{{ url_for('WorkflowTaskModelView.list') }}">
+            <h4><i class="fa fa-tasks"></i> {{ _('Workflow Tasks') }}</h4>
+            <span class="plmsys-muted">{{ _('Track review and release tasks.') }}</span>
+        </a>
+    </div>
+</div>
+
+<p class="plmsys-muted">
+    <i class="fa fa-info-circle"></i>
+    {{ _('The Object page (UI-1), Global Search (UI-2), Structure Manager (UI-4) and Worklist (UI-3) arrive in later phases.') }}
+</p>
+{% endblock %}

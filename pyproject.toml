@@ -1,0 +1,23 @@
+[project]
+name = "plmsys"
+version = "0.1.0"
+description = "Product Lifecycle System"
+readme = "README.md"
+authors = [
+    { name = "Andrew Gordon", email = "andrew.gordon68@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "flask-appbuilder>=5.2",
+    "flask-migrate>=4.1.0",
+    "markupsafe>=3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

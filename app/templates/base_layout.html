@@ -1,0 +1,149 @@
+{% extends 'appbuilder/baselayout.html' %}
+{% import 'appbuilder/baselib.html' as baselib %}
+
+{% block head_css %}
+    {{ super() }}
+    <style>{{ config.PLMSYS_THEME_CSS | safe }}</style>
+    <style>
+        :root { --plmsys-nav-width: 240px; --plmsys-header-height: 52px; }
+        body { background: var(--plmsys-body-bg); }
+        .plmsys-header {
+            display: flex; align-items: center; gap: 16px;
+            height: var(--plmsys-header-height); padding: 0 16px;
+            background: var(--plmsys-nav-bg); color: var(--plmsys-nav-text); position: fixed;
+            top: 0; left: 0; right: 0; z-index: 1030;
+        }
+        .plmsys-brand { display: flex; align-items: center; gap: 8px; color: var(--plmsys-nav-text-strong);
+            font-size: 17px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+        .plmsys-brand:hover, .plmsys-brand:focus { color: var(--plmsys-nav-text-strong); text-decoration: none; }
+        .plmsys-search { position: relative; flex: 1 1 auto; max-width: 520px; }
+        .plmsys-search .fa-search { position: absolute; left: 10px; top: 9px; color: var(--plmsys-header-search-muted); }
+        .plmsys-search input {
+            width: 100%; border: 0; border-radius: 4px; padding: 7px 10px 7px 32px;
+            background: var(--plmsys-header-search-bg); color: var(--plmsys-header-search-text); outline: none;
+        }
+        .plmsys-search input::placeholder { color: var(--plmsys-header-search-muted); }
+        .plmsys-ctx { color: var(--plmsys-nav-text); font-size: 12px; white-space: nowrap; }
+        .plmsys-user { margin: 0; }
+        .plmsys-user > li > a { color: var(--plmsys-nav-text); }
+        .plmsys-user > li > a:hover, .plmsys-user > li > a:focus,
+        .plmsys-user > li.open > a { color: var(--plmsys-nav-text-strong); background: var(--plmsys-nav-hover); }
+        .plmsys-shell { display: flex; padding-top: var(--plmsys-header-height); min-height: 100vh; }
+        .plmsys-nav {
+            width: var(--plmsys-nav-width); flex: 0 0 var(--plmsys-nav-width);
+            background: var(--plmsys-nav-bg-dark); padding: 12px 0; min-height: calc(100vh - var(--plmsys-header-height));
+        }
+        .plmsys-nav a { color: var(--plmsys-nav-text); text-decoration: none; display: block; }
+        .plmsys-nav a:hover, .plmsys-nav a:focus { color: var(--plmsys-nav-text-strong); background: var(--plmsys-nav-hover); }
+        .plmsys-nav-item { padding: 7px 16px; font-weight: 600; }
+        .plmsys-nav-heading {
+            padding: 14px 16px 4px; color: var(--plmsys-nav-heading); font-size: 11px;
+            letter-spacing: .06em; text-transform: uppercase;
+        }
+        .plmsys-nav-list { list-style: none; margin: 0; padding: 0; }
+        .plmsys-nav-list a { padding: 6px 16px 6px 24px; font-size: 13px; }
+        .plmsys-main { flex: 1 1 auto; min-width: 0; padding: 0 24px 48px; }
+        .plmsys-location {
+            margin: 0 -24px 18px; padding: 9px 24px; background: var(--plmsys-surface);
+            border-bottom: 1px solid var(--plmsys-border); color: var(--plmsys-muted); font-size: 13px;
+        }
+        .plmsys-location a { color: var(--plmsys-muted); }
+        .plmsys-footer {
+            margin-left: var(--plmsys-nav-width); padding: 12px 24px;
+            color: var(--plmsys-muted); font-size: 12px;
+        }
+        .plmsys-tile {
+            background: var(--plmsys-surface); border: 1px solid var(--plmsys-border); border-radius: 6px;
+            padding: 16px 18px; margin-bottom: 18px; height: 100%;
+        }
+        .plmsys-tile h4 { margin: 0 0 6px; }
+        a.plmsys-tile { display: block; color: var(--plmsys-text); text-decoration: none; }
+        a.plmsys-tile:hover { border-color: var(--plmsys-primary); text-decoration: none; }
+        .plmsys-kpi { font-size: 30px; font-weight: 700; color: var(--plmsys-primary); line-height: 1.1; }
+        .plmsys-muted { color: var(--plmsys-muted); font-size: 12px; }
+        .plmsys-hero { margin-bottom: 20px; }
+        .plmsys-hero h1 { margin-top: 6px; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    {% include 'appbuilder/general/confirm.html' %}
+    {% include 'appbuilder/general/alert.html' %}
+
+    {% block navbar %}
+    <header class="plmsys-header" role="banner">
+        <a class="plmsys-brand" href="{{ appbuilder.get_url_for_index }}">
+            {% if appbuilder.app_icon %}
+                <img src="{{ appbuilder.app_icon }}" alt="" height="24">
+            {% else %}
+                <i class="fa fa-cubes"></i>
+            {% endif %}
+            <span>{{ appbuilder.app_name }}</span>
+        </a>
+        <form class="plmsys-search" role="search" method="get"
+              action="{{ appbuilder.get_url_for_index }}">
+            <i class="fa fa-search"></i>
+            <input type="search" name="q" value="{{ request.args.get('q', '') }}"
+                   aria-label="{{ _('Search') }}"
+                   placeholder="{{ _('Search objects by number or name...') }}">
+        </form>
+        <div class="plmsys-ctx" title="{{ _('Active configuration context') }}">
+            <i class="fa fa-sliders"></i> {{ _('Context') }}: {{ _('Latest Released') }}
+        </div>
+        {% set languages = appbuilder.languages %}
+        <ul class="nav navbar-nav navbar-right plmsys-user">
+            {% include 'appbuilder/navbar_right.html' %}
+        </ul>
+    </header>
+    {% endblock %}
+
+    <div class="plmsys-shell">
+        {% block nav_panel %}
+        <nav class="plmsys-nav" role="navigation" aria-label="{{ _('Primary navigation') }}">
+            <a class="plmsys-nav-item" href="{{ appbuilder.get_url_for_index }}">
+                <i class="fa fa-fw fa-home"></i> {{ _('Home') }}
+            </a>
+            {% for item in appbuilder.menu.get_list() %}
+                {% if item | is_menu_visible %}
+                    <div class="plmsys-nav-group">
+                        <div class="plmsys-nav-heading">
+                            {% if item.icon %}<i class="fa fa-fw {{ item.icon }}"></i>{% endif %}
+                            {{ _(item.label) }}
+                        </div>
+                        <ul class="plmsys-nav-list">
+                            {% for child in item.childs %}
+                                {% if child and child.name != '-' and child | is_menu_visible %}
+                                    <li>
+                                        <a href="{{ child.get_url() }}">
+                                            <i class="fa fa-fw {{ child.icon }}"></i>
+                                            {{ _(child.label) }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </nav>
+        {% endblock %}
+
+        <main class="plmsys-main" role="main">
+            {% block location_bar %}
+            <div class="plmsys-location">
+                <a href="{{ appbuilder.get_url_for_index }}"><i class="fa fa-home"></i></a>
+                {% block breadcrumb %}{% endblock %}
+            </div>
+            {% endblock %}
+
+            {% block messages %}{{ super() }}{% endblock %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {% block footer %}
+    <footer class="plmsys-footer">
+        {% include 'appbuilder/footer.html' %}
+    </footer>
+    {% endblock %}
+{% endblock %}
