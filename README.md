@@ -30,10 +30,10 @@ Delivered so far:
 - **Task-oriented UI shell (UI-0)** — global header, left navigation panel,
   location bar, Home page with KPI/entry tiles, and a config-driven Bootstrap
   colour schema.
-- **Test suite** — 89 pytest tests covering seeds, the shell, the colour schema,
+- **Test suite** — 97 pytest tests covering seeds, the shell, the colour schema,
   the migration workflow, route-level access control, the service layer
   (including the `PropertyDataType` coercion matrix) and the FAB revision
-  actions.
+  actions/guards.
 
 The Object page, global search, personal context and Structure Manager arrive in
 later phases.

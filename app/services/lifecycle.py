@@ -26,6 +26,16 @@ OBSOLETE = "Obsolete"
 
 STATE_ORDER = (DRAFT, REVIEW, APPROVED, RELEASED, OBSOLETE)
 
+# Bootstrap 3 label class per state, used by ``Revision.release_state_badge``.
+# Kept next to the state constants so adding a state is a single edit.
+STATE_LABELS = {
+    DRAFT: "label-default",
+    REVIEW: "label-info",
+    APPROVED: "label-warning",
+    RELEASED: "label-success",
+    OBSOLETE: "label-danger",
+}
+
 # Allowed forward/backward transitions. ``Obsolete`` is terminal.
 _TRANSITIONS = {
     DRAFT: {REVIEW, OBSOLETE},
@@ -51,16 +61,6 @@ def get_state(session, name):
     if state is None:
         raise ServiceError(f"Unknown release state: {name!r}")
     return state
-
-
-def current_release_state(revision):
-    """Return the most recently assigned :class:`ReleaseState`, or ``None``."""
-    if not revision.release_states:
-        return None
-    return max(
-        revision.release_states,
-        key=lambda rel: (rel.assigned_on, rel.release_state_id),
-    ).release_state
 
 
 def current_state_name(revision) -> str:
@@ -112,10 +112,7 @@ def assign_release_state(
 
     revision.status = state.name
     business_object = revision.business_object
-    if (
-        business_object is not None
-        and business_object.current_revision_id == revision.id
-    ):
+    if business_object is not None and business_object.current_revision is revision:
         business_object.status = state.name
     session.flush()
     return state
@@ -127,10 +124,7 @@ def sync_status(revision, *, session=None) -> str:
     state_name = current_state_name(revision)
     revision.status = state_name
     business_object = revision.business_object
-    if (
-        business_object is not None
-        and business_object.current_revision_id == revision.id
-    ):
+    if business_object is not None and business_object.current_revision is revision:
         business_object.status = state_name
     session.flush()
     return state_name
@@ -177,10 +171,10 @@ __all__ = [
     "RELEASED",
     "OBSOLETE",
     "STATE_ORDER",
+    "STATE_LABELS",
     "assign_release_state",
     "approve",
     "can_transition",
-    "current_release_state",
     "current_state_name",
     "ensure_released",
     "get_state",

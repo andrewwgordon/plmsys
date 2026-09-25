@@ -1,14 +1,16 @@
 """Flask-AppBuilder views for the PLMSys domain model.
 
 Bootstraps one ``ModelView`` per domain entity, grouped into menu categories.
-Business logic (revision creation, workflow transitions, etc.) is intentionally
-out of scope here -- these views provide initial CRUD over the scaffold.
+Views stay thin: revision/lifecycle actions delegate to ``app/services`` via
+``app.view_mixins``; other entities provide CRUD over the scaffold.
 """
 
 from flask import g
 from flask_appbuilder import ModelView
 from flask_appbuilder.models.sqla.filters import FilterEqual
 from flask_appbuilder.models.sqla.interface import SQLAInterface
+
+from .extensions import db
 
 from .models import (
     BOMOccurrence,
@@ -113,7 +115,7 @@ class RevisionModelView(RevisionLifecycleMixin, ModelView):
         "modified_on",
     ]
     add_columns = ["business_object", "revision_id", "sequence_no", "title", "description"]
-    edit_columns = ["revision_id", "sequence_no", "title", "description"]
+    edit_columns = ["title", "description"]
     search_columns = ["revision_id", "title", "status"]
     order_columns = ["business_object", "sequence_no"]
     label_columns = {
@@ -145,16 +147,16 @@ class BusinessObjectModelView(CreateRevisionMixin, ModelView):
         "created_on",
         "modified_on",
     ]
+    # Object identity/type are fixed at creation: changing object_type would
+    # orphan property values (definitions are per type), and current_revision is
+    # managed by the "Create Revision"/"Set Current Revision" actions.
     add_columns = [
         "object_type",
         "object_number",
         "name",
         "description",
-        "current_revision",
     ]
     edit_columns = [
-        "object_type",
-        "object_number",
         "name",
         "description",
     ]
@@ -190,16 +192,14 @@ class RequirementModelView(CreateRevisionMixin, ModelView):
     ]
     search_columns = ["object_number", "name", "status"]
     order_columns = ["object_number"]
+    # object_type is forced to Requirement in pre_add, so it is not editable and
+    # a requirement cannot be silently retyped out of this filtered view.
     add_columns = [
-        "object_type",
         "object_number",
         "name",
         "description",
-        "current_revision",
     ]
     edit_columns = [
-        "object_type",
-        "object_number",
         "name",
         "description",
     ]
@@ -207,6 +207,13 @@ class RequirementModelView(CreateRevisionMixin, ModelView):
         "object_number": "Requirement Number",
         "current_revision": "Current Revision",
     }
+
+    def pre_add(self, item):
+        item.object_type = (
+            db.session.query(ObjectType)
+            .filter_by(name="Requirement")
+            .one()
+        )
 
 
 class RevisionLineageModelView(ModelView):
@@ -409,10 +416,11 @@ class BaselineMemberModelView(ModelView):
         try:
             lifecycle.ensure_released(item.revision)
         except ServiceError:
-            # Unhook the rejected (transient) member from its relationship
-            # collections so a later autoflush cannot cascade it.
-            item.revision = None
-            item.baseline = None
+            # A rejected pre_add item is transient; unhook it so a later
+            # autoflush cannot cascade it. Never mutate a persistent row.
+            if item not in db.session:
+                item.revision = None
+                item.baseline = None
             raise
 
 
@@ -471,10 +479,16 @@ class ReleaseStateModelView(ModelView):
 
 
 class RevisionReleaseStateModelView(ModelView):
+    """Read-only state history.
+
+    Assignments must go through ``services.lifecycle`` (the revision actions)
+    so the status cache stays in sync; an editable view here would bypass the
+    state machine and re-introduce drift.
+    """
+
     datamodel = SQLAInterface(RevisionReleaseState)
+    base_permissions = ["can_list", "can_show"]
     list_columns = ["revision", "release_state", "assigned_on"]
-    add_columns = ["revision", "release_state", "assigned_on"]
-    edit_columns = ["revision", "release_state", "assigned_on"]
     order_columns = ["revision"]
     label_columns = {
         "release_state": "Release State",

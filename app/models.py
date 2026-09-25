@@ -22,7 +22,7 @@ from enum import StrEnum
 
 from flask_appbuilder import Model
 from flask_appbuilder.models.decorators import renders
-from markupsafe import Markup
+from markupsafe import Markup, escape
 from sqlalchemy import (
     Boolean,
     Column,
@@ -84,17 +84,6 @@ class PropertyDataType(StrEnum):
     INTEGER = "Integer"
     FLOAT = "Float"
     DATE = "Date"
-
-
-# Bootstrap 3 label class per lifecycle state. Rendered together with the
-# state text (never colour alone) for accessibility.
-_RELEASE_STATE_LABEL_CSS = {
-    "Draft": "label-default",
-    "Review": "label-info",
-    "Approved": "label-warning",
-    "Released": "label-success",
-    "Obsolete": "label-danger",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +193,8 @@ class Revision(TimestampMixin, Model):
         "RevisionReleaseState",
         back_populates="revision",
         cascade="all, delete-orphan",
+        # selectin avoids an N+1 when list/show render the status badge.
+        lazy="selectin",
     )
     datasets = relationship(
         "Dataset", back_populates="revision", cascade="all, delete-orphan"
@@ -228,9 +219,13 @@ class Revision(TimestampMixin, Model):
     @renders("status")
     def release_state_badge(self):
         """Coloured, labelled lifecycle badge for FAB list/show columns."""
+        # Local import avoids a models <-> services circular import. The label
+        # map lives with the state constants in services.lifecycle.
+        from .services.lifecycle import STATE_LABELS
+
         state = self.release_state_name
-        css = _RELEASE_STATE_LABEL_CSS.get(state, "label-default")
-        return Markup(f'<span class="label {css}">{state}</span>')
+        css = STATE_LABELS.get(state, "label-default")
+        return Markup(f'<span class="label {css}">{escape(state)}</span>')
 
     def __repr__(self) -> str:
         number = self.business_object.object_number if self.business_object else self.object_id
@@ -647,7 +642,7 @@ class RevisionReleaseState(Model):
 
     revision = relationship("Revision", back_populates="release_states")
     release_state = relationship(
-        "ReleaseState", back_populates="revision_states"
+        "ReleaseState", back_populates="revision_states", lazy="joined"
     )
 
     def __repr__(self) -> str:

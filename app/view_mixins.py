@@ -7,6 +7,7 @@ redirect handling. Business rules stay in ``app/services/``.
 
 from flask import flash, redirect
 from flask_appbuilder import action
+from sqlalchemy.exc import IntegrityError
 
 from .extensions import db
 from .services import ServiceError, lifecycle, revisions
@@ -14,8 +15,10 @@ from .services import ServiceError, lifecycle, revisions
 
 def _normalise(items):
     """FAB passes a single model to *show* actions and a list to *list* actions."""
+    if items is None:
+        return []
     if isinstance(items, (list, tuple, set)):
-        return list(items)
+        return [item for item in items if item is not None]
     return [items]
 
 
@@ -23,6 +26,9 @@ class RevisionActionMixin:
     """Shared transaction/flash/redirect handling for revision actions."""
 
     def _run_revision_action(self, items, operation, success):
+        # Push the current URL so ``get_redirect()`` returns to the referring
+        # page (FAB's page-history convention; cf. BaseCRUDView.get_redirect).
+        self.update_redirect()
         items = _normalise(items)
         if not items:
             flash("No records selected.", "warning")
@@ -36,6 +42,15 @@ class RevisionActionMixin:
         except ServiceError as exc:
             db.session.rollback()
             flash(str(exc), "danger")
+        except IntegrityError:
+            # e.g. two concurrent "Create Revision" requests computing the same
+            # label: the unique constraint fires before any ServiceError.
+            db.session.rollback()
+            flash(
+                "The change conflicts with existing data "
+                "(duplicate or concurrent update).",
+                "danger",
+            )
         else:
             db.session.commit()
             for message in messages:

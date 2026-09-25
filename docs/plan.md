@@ -345,6 +345,15 @@ UI.
     both multi-revision objects (`REQ-0001`, `PART-1001`), so no change was
     needed.
 
+**Review follow-ups (applied):** actions call `update_redirect()` so they return
+to the referring page, not Home; the baseline guard only detaches *transient*
+items (never a persistent row); the Setup release-state view is read-only so it
+cannot bypass the service; `Revision.release_states` eager-loads
+(`lazy="selectin"`) to remove the badge N+1; revision identity and object
+type/number are no longer editable; action handlers handle `None` inputs and
+`IntegrityError`; and the badge escapes its state name. Covered by
+`tests/views/test_phase2_regressions.py`.
+
 **Deliverable:** ✅ users can branch, approve, release/obsolete and set the
 current revision through the UI; invalid transitions and non-released baseline
 members are rejected with a flash message.
