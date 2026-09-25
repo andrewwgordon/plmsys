@@ -464,25 +464,71 @@ data are rejected; raw `PropertyValue` editing is closed.
 
 ### Phase 4 — Traceability
 
-**Objective:** rich, queryable trace links.
+**Objective:** rich, queryable, directional trace links, visible and clickable
+in the UI.
 
-1. Add FAB `@action`s on `RequirementModelView`:
-   - "Derive requirement" (creates object + `DEFINING` relationship).
-   - "Allocate to…" (`ALLOCATED_TO`).
-   - "Verify by…" (`VERIFIED_BY`).
-2. Add a **Traceability Matrix** view:
-   - Rows: requirements (via `base_filters` on `object_type.name`), columns:
-     child/allocated/verified revisions.
-   - Implement as a read-only `BaseView` querying `Relationship`.
-   - Support depth traversal via `relationships.trace(...)`.
-3. Add "Relationships" related view tab on `RevisionModelView` (note: two FKs
-   to `Revision`, so scope with `base_filters` or a custom read-only view).
-4. Seed a deeper decomposition chain and cross-domain links
-   (requirement ↔ software component, requirement ↔ function).
+> **Dependency:** `services/relationships.py` (`create_relationship` with
+> self/duplicate guards, and `trace` BFS traversal) landed in Phase 1. This
+> phase adds model integrity, relation forms and the matrix/relations UI,
+> reusing the Phase 2 transaction/permission patterns and the Phase 3 `BaseView`
+> pattern.
 
-**Deliverable:** end-to-end requirement decomposition visible in the UI.
-**UI (UI-5):** Traceability Matrix with coverage-gap highlighting; Relations
-tab cross-links.
+1. **Model and service integrity (do this first):**
+   - add `UniqueConstraint(relationship_type_id, primary_revision_id,
+     secondary_revision_id)` to `Relationship` plus an Alembic migration, so
+     the seed/view/API cannot create duplicates and the check-then-insert race
+     in `create_relationship` is closed;
+   - keep the service self-reference guard (a portable DB CHECK is not
+     available) and enforce it in any editable view;
+   - add a `neighbours(revision, direction, type_names)` (and/or bulk helper)
+     returning **typed edges** `(relationship, neighbour)`; `trace` stays for
+     reachability. Relationships link **revisions**
+     (`primary --type--> secondary`).
+2. **Relation forms** (`BaseView`, service-backed, `@has_access`, using the
+   Phase 2 mixin for `commit`/`rollback`/flash):
+   - **Derive Requirement** — input number/name/description (optionally copy
+     properties) → create the object/revision via `revisions.create_revision`,
+     then `create_relationship("DEFINING", selected, new)`;
+   - **Allocate to…** — pick a target object → `create_relationship(
+     "ALLOCATED_TO", selected, target.current_revision)`;
+   - **Verify by…** — pick a target object → `create_relationship(
+     "VERIFIED_BY", selected, target.current_revision)`.
+   State the direction explicitly in the labels.
+3. **`TraceabilityMatrixView`** (read-only `BaseView` +
+   `templates/traceability_matrix.html`):
+   - rows = each requirement's **current revision** (query
+     `ObjectType.name == "Requirement"` explicitly — `base_filters` is a
+     `ModelView` concept and does not apply to `BaseView`);
+   - columns = `DEFINING` levels (customer → system → subsystem → component)
+     plus `ALLOCATED_TO`, `VERIFIED_BY`, `SATISFIED_BY`; cells are
+     click-through links (multiple links shown as a short list);
+   - define and highlight **coverage gaps** (e.g. a requirement with no
+     `VERIFIED_BY` and no `ALLOCATED_TO`/`SATISFIED_BY` target);
+   - bulk-load the relationships for the row set once and group in Python — do
+     **not** call `trace` per row (`_neighbours` is N+1);
+   - optional CSV export ([`ui_plan.md`](./ui_plan.md) UI-2).
+4. **Relations section** on the revision (or the UI-1 Object page Relations
+   tab): a custom read-only view listing **outbound and inbound** relationships
+   grouped by type, with click-through links. FAB `related_views` cannot be
+   scoped per parent for a two-FK model, so build it as a `BaseView` (or a
+   section on the revision show). Make `RelationshipModelView` read-only (or
+   Setup-only) and remove it from the primary nav
+   ([`ui_plan.md`](./ui_plan.md) §6.2) so it cannot bypass the service guards.
+5. **Seed** the missing cross-domain links — requirement ↔ Function and
+   requirement ↔ SoftwareComponent (e.g. `REQ-0002 --ALLOCATED_TO--> SWC-400`,
+   `REQ-0001 --SATISFIED_BY--> FUNC-200`) — and update
+   `EXPECTED_COUNTS["Relationship"]`.
+6. **Tests** (`tests/services/`, `tests/views/`): relation forms
+   (derive/allocate/verify, direction and target revision); DB duplicate/self
+   guards; matrix rendering + coverage gaps + no N+1; the relations section;
+   permission denial; and the new seed links. Reuse the
+   `tests/views/conftest.py` commit→flush fixture.
+
+**Deliverable:** end-to-end requirement decomposition and cross-domain
+traceability visible in the UI; duplicate and self links rejected at both the
+service and DB level.
+**UI (UI-5):** Traceability Matrix with coverage-gap highlighting and
+click-through cells; Relations section cross-links.
 
 ---
 
