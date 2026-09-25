@@ -365,28 +365,86 @@ command bar are delivered with the Object page.
 
 ### Phase 3 — Property system (metadata-driven editing)
 
-**Objective:** make properties first-class in the UI.
+**Objective:** make properties first-class in the UI: view and edit typed,
+multi-valued business data driven entirely by `PropertyDefinition` rows, with no
+schema change.
 
-1. Custom `PropertyDefinition` admin already exists; add validation:
-   - `name` matches `^[a-z][a-z0-9_]*$`.
-   - Changing `data_type` after values exist is blocked.
-2. Build a **dynamic property form** on the `Revision` show page:
-   - `BaseView` or a custom `show_template` that lists
-     `PropertyDefinition`s for the revision's object type and renders inputs by
-     `data_type`.
-   - Multi-valued definitions render repeatable rows.
-3. `SimpleFormView`/POST handler to submit values through
-   `properties.set_property`.
-4. Add a **Property Matrix** report (`GroupByChartView` or a custom
-   `BaseView` table): rows = requirements, columns = selected property
-   definitions.
-5. Seed verification: every seeded `PropertyValue` matches its definition's
-   `data_type`.
+> **Dependency:** `services/properties.py` (coercion, `set_property`,
+> `get_properties`, `copy_properties`, `validate_required`) landed in Phase 1.
+> This phase hardens that service, adds admin validation and builds the editing
+> UI, reusing the Phase 2 patterns for guards, permissions and transactions.
 
-**Deliverable:** properties can be viewed/edited without touching the DB or
-schema.
-**UI (UI-1):** Summary/Details tabs render and edit `PropertyValue`s on the
-Object page.
+1. **Harden the property service** (`app/services/properties.py`):
+   - add `delete_property(revision, definition, sequence_no)` /
+     `clear_properties(revision, definition)` so multi-valued rows can be
+     removed (today a cleared value is left as an all-null row and
+     `get_properties` returns `[None, …]`);
+   - define `mandatory` as **per definition** (at least one non-null value), not
+     per sequence, and enforce it in `set_property`;
+   - add a `matrix(revisions, definitions)` helper returning typed cell values
+     via `read_value`;
+   - document that definitions are matched on the **exact** `object_type_id`
+     (no `parent_type` inheritance) until ancestor lookup is added consistently
+     to `get_definition`, `set_property`, `validate_required` and the form.
+2. **Definition admin validation** (`PropertyDefinitionModelView.pre_add` /
+   `pre_update`):
+   - `name` matches `^[a-z][a-z0-9_]*$` **and** is not a reserved WTForms name
+     (`data`, `errors`, `meta`, `validate`, `csrf_token`, `process`, …) — the
+     dynamic form uses the property name as a field name (item 4);
+   - changing `data_type`, `object_type` or `multi_value` is blocked once values
+     exist. `pre_update` runs after `form.populate_obj`, so read the old value
+     via `sqlalchemy.inspect(item).attrs.<attr>.history` (or a
+     `db.session.no_autoflush` scalar query) before raising.
+3. **Close the raw-value bypass:** make `PropertyValueModelView` read-only
+   (`base_permissions = ["can_list", "can_show"]`) so every write goes through
+   `properties.set_property` — the same rule applied to
+   `RevisionReleaseStateModelView` (Phase 2, H3). Raw typed columns must never be
+   edited directly.
+4. **Dynamic property form** — `RevisionPropertiesView(BaseView)` at
+   `/revision/<int:pk>/properties` (GET renders, POST saves):
+   - build a WTForms class at runtime from the revision's definitions, mapping
+     `STRING→StringField`, `INTEGER→IntegerField`, `FLOAT→FloatField`,
+     `DATE→DateField`; `multi_value` definitions use
+     `FieldList(field, min_entries=1)` with add/remove rows;
+   - prefix generated fields (`prop_<name>`) to avoid WTForms reserved-name
+     collisions, stripping the prefix before calling the service;
+   - on POST call `properties.set_property` per value, catch `ServiceError` →
+     `flash(..., "danger")`, then run `validate_required` for missing mandatory
+     values; commit on success and roll back on error (Phase 2 mixin pattern);
+   - guard with `@has_access` and an explicit permission so Phase 12 can grant
+     it. **Do not use `SimpleFormView`**: its single `/form` route has no pk, so
+     the revision id would have to be a spoofable form field.
+5. **Object-page integration** — surface the form from the UI-1 Object page
+   Details tab (with a revision selector), or at minimum link it from a
+   `RevisionModelView` show action. The shell is the entry point, not the DB.
+6. **Property Matrix** — a read-only `BaseView` +
+   `templates/property_matrix.html` (not `GroupByChartView`, which is for
+   aggregated charts): rows = revisions of a selectable object type (default
+   Requirement), columns = selected definitions via a multi-select, cells =
+   `read_value`; eager-load `property_values`/`property_definition` to avoid the
+   badge-style N+1. Optional CSV export (UI-2).
+7. **Seed typed and multi-valued data.** Add at least one
+   `INTEGER`/`FLOAT`/`DATE` definition and one `multi_value=True` definition with
+   values (all 8 current definitions are `STRING`, so the typed and multi-value
+   paths are never exercised), and update `EXPECTED_COUNTS`.
+8. **Tests** (`tests/services/`, `tests/views/`):
+   - seed: every `PropertyValue` populates exactly one typed column matching its
+     definition's `data_type`, others null;
+   - service: `delete_property` and mandatory-per-definition semantics;
+   - admin validation: regex, reserved names, the `data_type`/`object_type`/
+     `multi_value` lock, and `PropertyValueModelView` read-only;
+   - form: GET renders inputs by type; POST coerces and stores; invalid input
+     and missing mandatory values flash; multi-value add/remove; wrong object
+     type rejected;
+   - matrix renders selected definitions with no N+1.
+   Reuse the `tests/views/conftest.py` commit→flush isolation fixture.
+
+**Deliverable:** properties are viewed and edited through the UI for every
+`PropertyDataType` (including multi-value add/remove) using only
+`PropertyDefinition` rows; definition changes that would invalidate existing
+data are rejected; raw `PropertyValue` editing is closed.
+**UI (UI-1):** Summary/Details tabs on the Object page render and edit
+`PropertyValue`s; the property form and matrix supply their data.
 
 ---
 
