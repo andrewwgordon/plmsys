@@ -64,11 +64,12 @@ def current_release_state(revision):
 
 
 def current_state_name(revision) -> str:
-    """Canonical current state name, falling back to the cached ``status``."""
-    state = current_release_state(revision)
-    if state is not None:
-        return state.name
-    return revision.status or DRAFT
+    """Canonical current state name.
+
+    Delegates to :attr:`Revision.release_state_name` (which falls back to the
+    cached ``status``) so the model badge and the service cannot drift.
+    """
+    return revision.release_state_name
 
 
 def can_transition(revision, state_name: str) -> bool:
@@ -158,10 +159,14 @@ def is_released(revision) -> bool:
 
 def ensure_released(revision) -> None:
     """Guard for baseline membership: only released revisions qualify."""
-    if not is_released(revision):
+    # ``no_autoflush`` keeps a pending BaselineMember (set by the form but not
+    # yet added to the session) from being cascade-flushed while we lazy-load
+    # the release states.
+    with db.session.no_autoflush:
+        state = current_state_name(revision)
+    if state != RELEASED:
         raise ServiceError(
-            f"Revision {revision.revision_id!r} is "
-            f"{current_state_name(revision)!r}, not {RELEASED!r}"
+            f"Revision {revision.revision_id!r} is {state!r}, not {RELEASED!r}"
         )
 
 

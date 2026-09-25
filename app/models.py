@@ -21,6 +21,8 @@ from datetime import datetime
 from enum import StrEnum
 
 from flask_appbuilder import Model
+from flask_appbuilder.models.decorators import renders
+from markupsafe import Markup
 from sqlalchemy import (
     Boolean,
     Column,
@@ -82,6 +84,17 @@ class PropertyDataType(StrEnum):
     INTEGER = "Integer"
     FLOAT = "Float"
     DATE = "Date"
+
+
+# Bootstrap 3 label class per lifecycle state. Rendered together with the
+# state text (never colour alone) for accessibility.
+_RELEASE_STATE_LABEL_CSS = {
+    "Draft": "label-default",
+    "Review": "label-info",
+    "Approved": "label-warning",
+    "Released": "label-success",
+    "Obsolete": "label-danger",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +208,29 @@ class Revision(TimestampMixin, Model):
     datasets = relationship(
         "Dataset", back_populates="revision", cascade="all, delete-orphan"
     )
+
+    @property
+    def release_state_name(self) -> str:
+        """Canonical current lifecycle state name.
+
+        Mirrors ``services.lifecycle.current_state_name`` without importing the
+        service (which would be circular). The denormalised ``status`` column is
+        the fallback when the revision has no release-state assignment.
+        """
+        if not self.release_states:
+            return self.status or "Draft"
+        latest = max(
+            self.release_states,
+            key=lambda rel: (rel.assigned_on, rel.release_state_id),
+        )
+        return latest.release_state.name
+
+    @renders("status")
+    def release_state_badge(self):
+        """Coloured, labelled lifecycle badge for FAB list/show columns."""
+        state = self.release_state_name
+        css = _RELEASE_STATE_LABEL_CSS.get(state, "label-default")
+        return Markup(f'<span class="label {css}">{state}</span>')
 
     def __repr__(self) -> str:
         number = self.business_object.object_number if self.business_object else self.object_id

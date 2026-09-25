@@ -19,15 +19,21 @@ Delivered so far:
   `ModelView`s.
 - **Domain services** (`app/services/`) — revision branching/lineage, typed
   metadata-driven properties, the release lifecycle state machine, and
-  relationship traversal. Views will call these in later phases.
+  relationship traversal.
+- **Revision lifecycle (Phase 2)** — FAB actions to create/branch revisions,
+  set the current revision and move them through
+  `Draft → Review → Approved → Released → Obsolete`, plus release-state badges,
+  a baseline guard (only released revisions) and role-aware action
+  permissions.
 - **Migration-first schema** — Alembic owns all tables; the app never creates
   tables at runtime. FAB security roles/permissions are bootstrapped on start.
 - **Task-oriented UI shell (UI-0)** — global header, left navigation panel,
   location bar, Home page with KPI/entry tiles, and a config-driven Bootstrap
   colour schema.
-- **Test suite** — 73 pytest tests covering seeds, the shell, the colour schema,
-  the migration workflow, route-level access control and the service layer
-  (including the `PropertyDataType` coercion matrix).
+- **Test suite** — 89 pytest tests covering seeds, the shell, the colour schema,
+  the migration workflow, route-level access control, the service layer
+  (including the `PropertyDataType` coercion matrix) and the FAB revision
+  actions.
 
 The Object page, global search, personal context and Structure Manager arrive in
 later phases.

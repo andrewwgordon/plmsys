@@ -33,6 +33,8 @@ from .models import (
     WorkflowProcess,
     WorkflowTask,
 )
+from .services import ServiceError, lifecycle
+from .view_mixins import CreateRevisionMixin, RevisionLifecycleMixin
 
 
 # ---------------------------------------------------------------------------
@@ -88,14 +90,17 @@ class RelationshipTypeModelView(ModelView):
 # ---------------------------------------------------------------------------
 
 
-class RevisionModelView(ModelView):
+class RevisionModelView(RevisionLifecycleMixin, ModelView):
     datamodel = SQLAInterface(Revision)
+    # `can_add` is intentionally omitted: revisions are created through the
+    # "Create Revision" action so lineage and lifecycle are always recorded.
+    base_permissions = ["can_list", "can_show", "can_edit", "can_delete"]
     list_columns = [
         "business_object",
         "revision_id",
         "sequence_no",
         "title",
-        "status",
+        "release_state_badge",
     ]
     show_columns = [
         "business_object",
@@ -103,22 +108,23 @@ class RevisionModelView(ModelView):
         "sequence_no",
         "title",
         "description",
-        "status",
+        "release_state_badge",
         "created_on",
         "modified_on",
     ]
-    add_columns = ["business_object", "revision_id", "sequence_no", "title", "description", "status"]
-    edit_columns = ["business_object", "revision_id", "sequence_no", "title", "description", "status"]
+    add_columns = ["business_object", "revision_id", "sequence_no", "title", "description"]
+    edit_columns = ["revision_id", "sequence_no", "title", "description"]
     search_columns = ["revision_id", "title", "status"]
     order_columns = ["business_object", "sequence_no"]
     label_columns = {
         "business_object": "Business Object",
         "revision_id": "Revision",
         "sequence_no": "Sequence",
+        "release_state_badge": "Status",
     }
 
 
-class BusinessObjectModelView(ModelView):
+class BusinessObjectModelView(CreateRevisionMixin, ModelView):
     datamodel = SQLAInterface(BusinessObject)
     related_views = [RevisionModelView]
     list_columns = [
@@ -145,15 +151,12 @@ class BusinessObjectModelView(ModelView):
         "name",
         "description",
         "current_revision",
-        "status",
     ]
     edit_columns = [
         "object_type",
         "object_number",
         "name",
         "description",
-        "current_revision",
-        "status",
     ]
     search_columns = ["object_number", "name", "status"]
     order_columns = ["object_number"]
@@ -164,7 +167,7 @@ class BusinessObjectModelView(ModelView):
     }
 
 
-class RequirementModelView(ModelView):
+class RequirementModelView(CreateRevisionMixin, ModelView):
     """Business objects whose type is ``Requirement``."""
 
     datamodel = SQLAInterface(BusinessObject)
@@ -187,6 +190,19 @@ class RequirementModelView(ModelView):
     ]
     search_columns = ["object_number", "name", "status"]
     order_columns = ["object_number"]
+    add_columns = [
+        "object_type",
+        "object_number",
+        "name",
+        "description",
+        "current_revision",
+    ]
+    edit_columns = [
+        "object_type",
+        "object_number",
+        "name",
+        "description",
+    ]
     label_columns = {
         "object_number": "Requirement Number",
         "current_revision": "Current Revision",
@@ -380,6 +396,24 @@ class BaselineMemberModelView(ModelView):
     add_columns = ["baseline", "revision"]
     edit_columns = ["baseline", "revision"]
     order_columns = ["baseline", "revision"]
+
+    def pre_add(self, item):
+        """Only released revisions may enter a baseline (Phase 2 guard)."""
+        self._ensure_released(item)
+
+    def pre_update(self, item):
+        self._ensure_released(item)
+
+    @staticmethod
+    def _ensure_released(item):
+        try:
+            lifecycle.ensure_released(item.revision)
+        except ServiceError:
+            # Unhook the rejected (transient) member from its relationship
+            # collections so a later autoflush cannot cascade it.
+            item.revision = None
+            item.baseline = None
+            raise
 
 
 # ---------------------------------------------------------------------------
