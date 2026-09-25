@@ -1269,6 +1269,15 @@ blockquote {
     white-space: nowrap;
 }
 
+.plmsys-ctx select {
+    background: var(--plmsys-header-search-bg);
+    color: var(--plmsys-header-search-text);
+    border: 0;
+    border-radius: var(--plmsys-radius-base);
+    padding: 3px 6px;
+    font-size: 12px;
+}
+
 .plmsys-user {
     margin: 0;
 }

@@ -1,0 +1,61 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Compare Baselines') }}{% endblock %}
+{% block breadcrumb %} / {{ _('Configuration') }} / {{ _('Compare Baselines') }}{% endblock %}
+
+{% macro revision_link(revision) %}
+    <a href="{{ url_for('RevisionModelView.show', pk=revision.id) }}">
+        {{ revision.business_object.object_number }}
+    </a>
+    ({{ revision.revision_id }})
+{% endmacro %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Compare Baselines') }}</h1>
+    <p class="plmsys-muted">{{ _('Additions, removals and revision changes between two baselines.') }}</p>
+</div>
+
+<form method="get" class="form-inline" style="margin-bottom: 12px;" role="form">
+    <label>{{ _('From') }}</label>
+    <select name="a" class="form-control">
+        <option value="">{{ _('Select…') }}</option>
+        {% for baseline in baselines %}
+            <option value="{{ baseline.id }}" {% if baseline_a and baseline_a.id == baseline.id %}selected{% endif %}>{{ baseline.name }}</option>
+        {% endfor %}
+    </select>
+    <label>{{ _('to') }}</label>
+    <select name="b" class="form-control">
+        <option value="">{{ _('Select…') }}</option>
+        {% for baseline in baselines %}
+            <option value="{{ baseline.id }}" {% if baseline_b and baseline_b.id == baseline.id %}selected{% endif %}>{{ baseline.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">{{ _('Compare') }}</button>
+</form>
+
+{% if result %}
+    <div class="panel panel-success">
+        <div class="panel-heading"><h4 class="panel-title">{{ _('Added') }} ({{ result.added | length }})</h4></div>
+        <div class="panel-body">
+            {% for revision in result.added %}<div>{{ revision_link(revision) }}</div>{% else %}<span class="plmsys-muted">{{ _('None.') }}</span>{% endfor %}
+        </div>
+    </div>
+    <div class="panel panel-danger">
+        <div class="panel-heading"><h4 class="panel-title">{{ _('Removed') }} ({{ result.removed | length }})</h4></div>
+        <div class="panel-body">
+            {% for revision in result.removed %}<div>{{ revision_link(revision) }}</div>{% else %}<span class="plmsys-muted">{{ _('None.') }}</span>{% endfor %}
+        </div>
+    </div>
+    <div class="panel panel-warning">
+        <div class="panel-heading"><h4 class="panel-title">{{ _('Changed') }} ({{ result.changed | length }})</h4></div>
+        <div class="panel-body">
+            {% for change in result.changed %}
+                <div>{{ revision_link(change.before) }} &rarr; {{ revision_link(change.after) }}</div>
+            {% else %}
+                <span class="plmsys-muted">{{ _('None.') }}</span>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

@@ -644,7 +644,7 @@ by UI-4).
 
 ---
 
-### Phase 6 — Configuration management & baselines
+### Phase 6 — Configuration management & baselines — ✅ Complete
 
 **Objective:** rule-driven configuration resolution, atomic baselines, and a
 baseline diff.
@@ -702,6 +702,22 @@ baseline diff.
    and `Baseline` unique constraints; the create/detail/compare views; and a
    seed invariant that all baseline members are Released. Reuse the
    `tests/views/conftest.py` isolation fixture.
+
+**Delivered:** `RevisionRule.rule_type` and `Baseline`'s
+`UniqueConstraint(configuration_context_id, name)` + `created_by` (migration
+`eb8e40076f38`); the seed now releases every baseline member (plus one Approved
+example). `services/configuration.py` provides `resolve` (rule-type dispatch on
+the canonical lifecycle), atomic `create_baseline` (`ensure_released` +
+duplicate-name guard), `compare_baselines` (added/removed/changed) and
+`add_baseline_member`/`remove_baseline_member`. `app/ui/configuration.py`
+provides the context-scoped Create Baseline form, the grouped
+`BaselineDetailView`, `BaselineCompareView`, and a session-based `SetContextView`
+with a header context selector (persistence deferred — `UserPreference` is not
+introduced). Baseline/member ModelViews are read-only and moved to Setup. A
+`PLMSYS_AUTO_SEED=0` env override was added so migrations can autogenerate when
+the seed already references a new column. Covered by
+`tests/services/test_configuration.py` and
+`tests/views/test_configuration_views.py`.
 
 **Deliverable:** rule-driven configuration resolution, reusable atomic
 baselines and a baseline diff, with non-Released members and duplicate names
@@ -851,7 +867,7 @@ logged-in test client.
 > **Progress:** M1 in progress — Phase 0 + UI-0 ✅ complete; Phase 1 services ✅
 > complete; Phase 2 revision/lifecycle ✅ complete; Phase 3 properties ✅
 > complete; Phase 4 traceability ✅ complete; Phase 5 BOM ✅ complete; Phase 6
-> pending.
+> configuration ✅ complete; Phase 7 pending.
 
 ---
 

@@ -35,6 +35,25 @@ def create_app(config_overrides=None) -> Flask:
     if config_overrides:
         app.config.update(config_overrides)
 
+    @app.context_processor
+    def _plmsys_context():
+        """Expose the configuration contexts + active one to every template."""
+        from .models import ConfigurationContext
+        from .ui.configuration import active_context
+
+        try:
+            contexts = (
+                db.session.query(ConfigurationContext)
+                .order_by(ConfigurationContext.name)
+                .all()
+            )
+        except Exception:
+            contexts = []
+        return {
+            "plmsys_contexts": contexts,
+            "plmsys_active_context": active_context(contexts),
+        }
+
     with app.app_context():
         db.init_app(app)
         migrate.init_app(app, db, compare_type=True, render_as_batch=True)

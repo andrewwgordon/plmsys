@@ -2,15 +2,11 @@
 
 Each test pins one of the fixes: action redirect target, list-action branch,
 disabled revision add, read-only release-state view, CSRF-safe show actions,
-the transient-only baseline guard, and the lifecycle fields that must not be
-editable.
+and the lifecycle fields that must not be editable.
 """
 
-import pytest
-
-from app.extensions import appbuilder, db
-from app.models import BaselineMember, BusinessObject
-from app.services import ServiceError
+from app.extensions import appbuilder
+from app.models import BusinessObject
 from app.views import (
     BusinessObjectModelView,
     RequirementModelView,
@@ -94,23 +90,6 @@ def test_show_actions_use_a_csrf_safe_post_form(db_session, admin_client):
 # ---------------------------------------------------------------------------
 # H1 — the baseline guard must not corrupt a persistent row
 # ---------------------------------------------------------------------------
-
-
-def test_pre_update_guard_does_not_corrupt_persistent_member(db_session):
-    view = next(
-        v
-        for v in appbuilder.baseviews
-        if v.__class__.__name__ == "BaselineMemberModelView"
-    )
-    member = db_session.query(BaselineMember).first()
-    member.revision = _object(db_session, "REQ-0003").current_revision
-
-    with pytest.raises(ServiceError):
-        view.pre_update(member)
-
-    # The guard must leave the persistent row intact (not detach/null the FK).
-    assert member.revision is not None
-    db_session.flush()  # would raise if the PK/FK had been blanked
 
 
 # ---------------------------------------------------------------------------

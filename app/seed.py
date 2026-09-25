@@ -29,6 +29,7 @@ from .models import (
     RevisionLineage,
     RevisionReleaseState,
     RevisionRule,
+    RevisionRuleType,
     VerificationResult,
     WorkflowProcess,
     WorkflowTask,
@@ -224,10 +225,12 @@ def seed_data(session: Session) -> bool:
     # -- revision rules & configuration contexts ---------------------------
     latest_working = RevisionRule(
         name="Latest Working",
+        rule_type=RevisionRuleType.LATEST_WORKING,
         description="Select the latest working revision of every object.",
     )
     latest_released = RevisionRule(
         name="Latest Released",
+        rule_type=RevisionRuleType.LATEST_RELEASED,
         description="Select the latest released revision of every object.",
     )
     session.add_all([latest_working, latest_released])
@@ -456,6 +459,7 @@ def seed_data(session: Session) -> bool:
         configuration_context=context_released,
         name="EV Program Baseline v1.0",
         description="First released baseline of the EV battery program.",
+        created_by="seed",
     )
     session.add(baseline)
     session.flush()
@@ -476,9 +480,13 @@ def seed_data(session: Session) -> bool:
     # does not start out inconsistent (see `app/services/lifecycle.py`).
     for revision, state_name in (
         (req1_revs[1], "Released"),
-        (req2_revs[0], "Approved"),
+        (req2_revs[0], "Released"),
+        (part_module_revs[0], "Released"),
         (part_cell_revs[1], "Released"),
-        (test_range_revs[0], "Approved"),
+        (part_plate_revs[0], "Released"),
+        (arch_pack_revs[0], "Released"),
+        (test_range_revs[0], "Released"),
+        (func_traction_revs[0], "Approved"),
     ):
         session.add(
             RevisionReleaseState(

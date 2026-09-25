@@ -27,8 +27,14 @@ FAB_SECURITY_MANAGER_CLASS = "app.security.PLMSecurityManager"
 # Intended for tests and throwaway local bootstraps only; use `flask db upgrade`.
 AUTO_CREATE_SCHEMA = False
 
-# Seed representative business data once the schema is ready.
-AUTO_SEED = True
+# Seed representative business data once the schema is ready. Set
+# PLMSYS_AUTO_SEED=0 to disable (e.g. while autogenerating a migration whose
+# new column the seed already references).
+AUTO_SEED = os.environ.get("PLMSYS_AUTO_SEED", "1").lower() not in (
+    "0",
+    "false",
+    "no",
+)
 
 # Flask-WTF flag for CSRF  
 CSRF_ENABLED = True

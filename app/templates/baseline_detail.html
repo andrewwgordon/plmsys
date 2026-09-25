@@ -1,0 +1,51 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ baseline.name }}{% endblock %}
+{% block breadcrumb %} / {{ _('Configuration') }} / {{ baseline.name }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ baseline.name }}</h1>
+    <p class="plmsys-muted">
+        {{ baseline.configuration_context.name }}
+        {% if baseline.description %}&mdash; {{ baseline.description }}{% endif %}
+        {% if baseline.created_by %}({{ _('created by') }} {{ baseline.created_by }}){% endif %}
+    </p>
+</div>
+
+{% for type_name, revisions in groups.items() %}
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 class="panel-title">{{ type_name }} ({{ revisions | length }})</h4>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-condensed table-hover">
+                <thead>
+                    <tr>
+                        <th>{{ _('Object') }}</th>
+                        <th>{{ _('Name') }}</th>
+                        <th>{{ _('Revision') }}</th>
+                        <th>{{ _('State') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for revision in revisions %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('RevisionModelView.show', pk=revision.id) }}">
+                                    {{ revision.business_object.object_number }}
+                                </a>
+                            </td>
+                            <td>{{ revision.business_object.name }}</td>
+                            <td>{{ revision.revision_id }}</td>
+                            <td><span class="label label-default">{{ revision.release_state_name }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <p class="plmsys-muted">{{ _('No members.') }}</p>
+{% endfor %}
+{% endblock %}

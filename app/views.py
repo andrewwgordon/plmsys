@@ -40,13 +40,18 @@ from .models import (
     WorkflowProcess,
     WorkflowTask,
 )
-from .services import ServiceError, lifecycle
 from .ui.bom import (
     AddOccurrenceView,
     BomCoverageView,
     BomTreeView,
     LinkRequirementView,
     RemoveOccurrenceView,
+)
+from .ui.configuration import (
+    BaselineCompareView,
+    BaselineDetailView,
+    CreateBaselineView,
+    SetContextView,
 )
 from .ui.properties import PropertyMatrixView, RevisionPropertiesView
 from .ui.traceability import (
@@ -474,47 +479,33 @@ class ConfigurationContextModelView(ModelView):
 
 
 class BaselineModelView(ModelView):
+    """Read-only baselines (created via the context-scoped form)."""
+
     datamodel = SQLAInterface(Baseline)
-    related_views = []
-    list_columns = ["name", "configuration_context", "description"]
+    base_permissions = ["can_list", "can_show"]
+    list_columns = ["name", "configuration_context", "created_by", "description"]
     show_columns = [
         "name",
         "configuration_context",
+        "created_by",
         "description",
         "created_on",
     ]
-    add_columns = ["name", "configuration_context", "description"]
-    edit_columns = ["name", "configuration_context", "description"]
     search_columns = ["name"]
     order_columns = ["name"]
-    label_columns = {"configuration_context": "Configuration Context"}
+    label_columns = {
+        "configuration_context": "Configuration Context",
+        "created_by": "Created By",
+    }
 
 
 class BaselineMemberModelView(ModelView):
+    """Read-only baseline members (added atomically via create_baseline)."""
+
     datamodel = SQLAInterface(BaselineMember)
+    base_permissions = ["can_list", "can_show"]
     list_columns = ["baseline", "revision", "created_on"]
-    add_columns = ["baseline", "revision"]
-    edit_columns = ["baseline", "revision"]
     order_columns = ["baseline", "revision"]
-
-    def pre_add(self, item):
-        """Only released revisions may enter a baseline (Phase 2 guard)."""
-        self._ensure_released(item)
-
-    def pre_update(self, item):
-        self._ensure_released(item)
-
-    @staticmethod
-    def _ensure_released(item):
-        try:
-            lifecycle.ensure_released(item.revision)
-        except ServiceError:
-            # A rejected pre_add item is transient; unhook it so a later
-            # autoflush cannot cascade it. Never mutate a persistent row.
-            if item not in db.session:
-                item.revision = None
-                item.baseline = None
-            raise
 
 
 # ---------------------------------------------------------------------------
@@ -772,11 +763,14 @@ def register_views(appbuilder) -> None:
         category_icon="fa-random",
     )
     appbuilder.add_view(
-        BaselineModelView,
-        "Baselines",
+        BaselineCompareView,
+        "Baseline Compare",
         icon="fa-flag-checkered",
         category="Configuration",
     )
+    appbuilder.add_view_no_menu(CreateBaselineView)
+    appbuilder.add_view_no_menu(BaselineDetailView)
+    appbuilder.add_view_no_menu(SetContextView)
 
     # Workflow
     appbuilder.add_view(
@@ -824,6 +818,9 @@ def register_views(appbuilder) -> None:
     )
     appbuilder.add_view(
         RevisionRuleModelView, "Revision Rules", icon="fa-filter", **setup
+    )
+    appbuilder.add_view(
+        BaselineModelView, "Baselines", icon="fa-flag-checkered", **setup
     )
     appbuilder.add_view(
         ReleaseStateModelView,

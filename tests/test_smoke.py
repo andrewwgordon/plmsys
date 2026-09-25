@@ -21,7 +21,7 @@ EXPECTED_COUNTS = {
     "Dataset": 1,
     "ManagedFile": 1,
     "ReleaseState": 5,
-    "RevisionReleaseState": 4,
+    "RevisionReleaseState": 8,
     "VerificationResult": 1,
     "WorkflowProcess": 1,
     "WorkflowTask": 2,

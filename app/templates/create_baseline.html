@@ -1,0 +1,31 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Create Baseline') }} - {{ context.name }}{% endblock %}
+{% block breadcrumb %} / {{ _('Configuration') }} / {{ context.name }} / {{ _('Create Baseline') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Create Baseline') }}</h1>
+    <p class="plmsys-muted">
+        {{ _('Context') }}: {{ context.name }} &mdash; {{ context.revision_rule.name }}
+    </p>
+</div>
+
+<form method="post" class="form-horizontal" role="form">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="name">{{ _('Name') }}</label>
+        <div class="col-sm-6">
+            {{ form.name(class_='form-control') }}
+            {% for error in form.name.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+            <p class="help-block">{{ _('Only Released revisions are captured in a baseline.') }}</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <button type="submit" class="btn btn-primary">{{ _('Create') }}</button>
+            <a class="btn btn-default" href="{{ url_for('BaselineModelView.list') }}">{{ _('Cancel') }}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

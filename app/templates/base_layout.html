@@ -30,9 +30,19 @@
                    aria-label="{{ _('Search') }}"
                    placeholder="{{ _('Search objects by number or name...') }}">
         </form>
-        <div class="plmsys-ctx" title="{{ _('Active configuration context') }}">
-            <i class="fa fa-sliders"></i> {{ _('Context') }}: {{ _('Latest Released') }}
-        </div>
+        <form class="plmsys-ctx" method="post" action="{{ url_for('SetContextView.set_context') }}"
+              title="{{ _('Active configuration context') }}">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <i class="fa fa-sliders"></i>
+            <label for="plmsys-context" class="sr-only">{{ _('Configuration context') }}</label>
+            <select id="plmsys-context" name="context_id" onchange="this.form.submit()">
+                <option value="">{{ _('Context') }}: —</option>
+                {% for context in (plmsys_contexts | default([])) %}
+                    <option value="{{ context.id }}" {% if plmsys_active_context and plmsys_active_context.id == context.id %}selected{% endif %}>{{ context.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
         {% set languages = appbuilder.languages %}
         <ul class="nav navbar-nav navbar-right plmsys-user">
             {% include 'appbuilder/navbar_right.html' %}

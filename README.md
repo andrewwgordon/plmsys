@@ -34,15 +34,19 @@ Delivered so far:
 - **BOM (Phase 5)** — a cycle-safe product-structure explorer with quantity
   roll-up, where-used, add-occurrence and requirement-trace forms, and a BOM
   coverage-gap report, backed by `services/bom.py` and DB constraints.
+- **Configuration & baselines (Phase 6)** — rule-driven revision resolution,
+  atomic baselines (Released-only, duplicate-guarded), a baseline detail and
+  compare page, and a session-based header context selector.
 - **Migration-first schema** — Alembic owns all tables; the app never creates
   tables at runtime. FAB security roles/permissions are bootstrapped on start.
 - **Task-oriented UI shell (UI-0)** — global header, left navigation panel,
   location bar, Home page with KPI/entry tiles, and a config-driven Bootstrap
   colour schema.
-- **Test suite** — 169 pytest tests covering seeds, the shell, the colour
+- **Test suite** — 183 pytest tests covering seeds, the shell, the colour
   schema, the migration workflow, route-level access control, the service layer
   (including the `PropertyDataType` coercion matrix), the FAB revision
-  actions/guards, the property form/matrix, traceability and the BOM.
+  actions/guards, the property form/matrix, traceability, the BOM and
+  configuration/baselines.
 
 The Object page, global search, personal context and Structure Manager arrive in
 later phases.
@@ -102,7 +106,8 @@ All application config lives in `config.py`.
   `app/templates/static/`.
 - **Schema ownership** — `FAB_CREATE_DB = False` and `AUTO_CREATE_SCHEMA = False`
   keep schema creation in Alembic. `AUTO_SEED = True` seeds business data once
-  the schema is ready.
+  the schema is ready; set `PLMSYS_AUTO_SEED=0` to disable seeding (e.g. while
+  autogenerating a migration whose column the seed already references).
 
 ## UI shell
 

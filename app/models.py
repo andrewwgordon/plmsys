@@ -43,6 +43,7 @@ __all__ = [
     "BusinessObject",
     "Revision",
     "RevisionLineage",
+    "RevisionRuleType",
     "PropertyDefinition",
     "PropertyValue",
     "RelationshipType",
@@ -84,6 +85,13 @@ class PropertyDataType(StrEnum):
     INTEGER = "Integer"
     FLOAT = "Float"
     DATE = "Date"
+
+
+class RevisionRuleType(StrEnum):
+    """How a :class:`RevisionRule` selects a revision per object."""
+
+    LATEST_WORKING = "Latest Working"
+    LATEST_RELEASED = "Latest Released"
 
 
 # ---------------------------------------------------------------------------
@@ -495,6 +503,12 @@ class RevisionRule(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(120), unique=True, nullable=False)
+    rule_type = Column(
+        SAEnum(RevisionRuleType, native_enum=False, length=40),
+        default=RevisionRuleType.LATEST_WORKING,
+        server_default=RevisionRuleType.LATEST_WORKING.name,
+        nullable=False,
+    )
     description = Column(Text)
 
     configuration_contexts = relationship(
@@ -534,6 +548,11 @@ class Baseline(TimestampMixin, Model):
     """Frozen configuration captured from a context."""
 
     __tablename__ = "baseline"
+    __table_args__ = (
+        UniqueConstraint(
+            "configuration_context_id", "name", name="uq_baseline_context_name"
+        ),
+    )
 
     id = Column(Integer, primary_key=True)
     configuration_context_id = Column(
@@ -541,6 +560,8 @@ class Baseline(TimestampMixin, Model):
     )
     name = Column(String(120), nullable=False)
     description = Column(Text)
+    # Free-text creator (the domain model has no user FK).
+    created_by = Column(String(120))
 
     configuration_context = relationship(
         "ConfigurationContext", back_populates="baselines"
