@@ -25,15 +25,18 @@ Delivered so far:
   `Draft → Review → Approved → Released → Obsolete`, plus release-state badges,
   a baseline guard (only released revisions) and role-aware action
   permissions.
+- **Property system (Phase 3)** — typed, multi-valued business data edited
+  through a dynamic form generated from `PropertyDefinition` rows (with a
+  Property Matrix report), validated definition admin and read-only raw values.
 - **Migration-first schema** — Alembic owns all tables; the app never creates
   tables at runtime. FAB security roles/permissions are bootstrapped on start.
 - **Task-oriented UI shell (UI-0)** — global header, left navigation panel,
   location bar, Home page with KPI/entry tiles, and a config-driven Bootstrap
   colour schema.
-- **Test suite** — 97 pytest tests covering seeds, the shell, the colour schema,
-  the migration workflow, route-level access control, the service layer
-  (including the `PropertyDataType` coercion matrix) and the FAB revision
-  actions/guards.
+- **Test suite** — 118 pytest tests covering seeds, the shell, the colour
+  schema, the migration workflow, route-level access control, the service layer
+  (including the `PropertyDataType` coercion matrix), the FAB revision
+  actions/guards and the property form/matrix.
 
 The Object page, global search, personal context and Structure Manager arrive in
 later phases.

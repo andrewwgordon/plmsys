@@ -363,7 +363,7 @@ command bar are delivered with the Object page.
 
 ---
 
-### Phase 3 — Property system (metadata-driven editing)
+### Phase 3 — Property system (metadata-driven editing) — ✅ Complete
 
 **Objective:** make properties first-class in the UI: view and edit typed,
 multi-valued business data driven entirely by `PropertyDefinition` rows, with no
@@ -438,6 +438,20 @@ schema change.
      type rejected;
    - matrix renders selected definitions with no N+1.
    Reuse the `tests/views/conftest.py` commit→flush isolation fixture.
+
+**Delivered:** `services/properties.py` gained `delete_property` /
+`clear_properties` (with `delete-orphan` collection consistency), per-definition
+mandatory checks and `matrix`; `PropertyDefinitionModelView` validates the name
+regex + reserved WTForms names and locks `data_type`/`object_type`/`multi_value`
+once values exist (rolling back so a rejected edit cannot be autoflushed);
+`PropertyValueModelView` is read-only; a dynamic
+`RevisionPropertiesView(BaseView)` (runtime WTForms, `FieldList` multi-value,
+prefixed fields) and a `PropertyMatrixView` landed, plus an **Edit Properties**
+revision action; the seed now carries typed (`INTEGER`/`FLOAT`/`DATE`) and
+multi-valued (`tags`) definitions/values; and `PropertyDefinitionModelView`
+overrides the non-nullable booleans as optional so false values can be
+submitted. Covered by `tests/services/test_properties.py` and
+`tests/views/test_property_views.py`.
 
 **Deliverable:** properties are viewed and edited through the UI for every
 `PropertyDataType` (including multi-value add/remove) using only
@@ -647,7 +661,8 @@ logged-in test client.
 | M6 — Hardening | 13 | UI-9 | CI, docs, accessibility audit, release |
 
 > **Progress:** M1 in progress — Phase 0 + UI-0 ✅ complete; Phase 1 services ✅
-> complete; Phase 2 revision/lifecycle ✅ complete; Phase 3 pending.
+> complete; Phase 2 revision/lifecycle ✅ complete; Phase 3 properties ✅
+> complete; Phase 4 pending.
 
 ---
 

@@ -5,6 +5,9 @@ Property *definitions* describe typed attributes on an object type; property
 between Python values and the four typed columns on
 :class:`~app.models.PropertyValue`, plus mandatory/multi-value enforcement
 (``docs/plan.md`` §7: "always coerce via PropertyDataType").
+
+Definitions are matched on the **exact** ``object_type_id``: ``ObjectType``
+parent types are not traversed (documented behaviour, not an oversight).
 """
 
 from datetime import date, datetime
@@ -97,6 +100,16 @@ def read_value(property_value):
     return None
 
 
+def _has_other_value(revision, definition, sequence_no) -> bool:
+    """True when the revision holds another non-null value for the definition."""
+    return any(
+        pv.property_definition_id == definition.id
+        and pv.sequence_no != sequence_no
+        and read_value(pv) is not None
+        for pv in revision.property_values
+    )
+
+
 def set_property(
     revision,
     definition,
@@ -127,7 +140,11 @@ def set_property(
         raise ServiceError("sequence_no must be >= 1")
 
     coerced = coerce_value(definition, value)
-    if coerced is None and definition.mandatory:
+    if (
+        coerced is None
+        and definition.mandatory
+        and not _has_other_value(revision, definition, sequence_no)
+    ):
         raise ServiceError(f"Property {definition.name!r} is mandatory")
 
     property_value = (
@@ -158,6 +175,58 @@ def set_property(
     return property_value
 
 
+def delete_property(revision, definition, sequence_no: int = 1, *, session=None) -> bool:
+    """Delete one stored value. Returns ``True`` when a row was removed.
+
+    Deleting the last non-null value of a mandatory definition is rejected.
+    """
+    session = _session(session)
+    property_value = (
+        session.query(PropertyValue)
+        .filter_by(
+            revision_id=revision.id,
+            property_definition_id=definition.id,
+            sequence_no=sequence_no,
+        )
+        .one_or_none()
+    )
+    if property_value is None:
+        return False
+    if (
+        definition.mandatory
+        and read_value(property_value) is not None
+        and not _has_other_value(revision, definition, sequence_no)
+    ):
+        raise ServiceError(f"Property {definition.name!r} is mandatory")
+    if property_value in revision.property_values:
+        # delete-orphan: removing from the parent schedules the DELETE and keeps
+        # the in-memory collection consistent for subsequent reads.
+        revision.property_values.remove(property_value)
+    else:
+        session.delete(property_value)
+    session.flush()
+    return True
+
+
+def clear_properties(revision, definition, *, session=None) -> int:
+    """Delete every value for a definition. Rejects clearing a mandatory one."""
+    session = _session(session)
+    values = [
+        pv
+        for pv in revision.property_values
+        if pv.property_definition_id == definition.id
+    ]
+    if definition.mandatory and any(read_value(pv) is not None for pv in values):
+        raise ServiceError(f"Property {definition.name!r} is mandatory")
+    for property_value in values:
+        if property_value in revision.property_values:
+            revision.property_values.remove(property_value)
+        else:
+            session.delete(property_value)
+    session.flush()
+    return len(values)
+
+
 def get_properties(revision) -> dict:
     """Return a typed ``{name: value}`` mapping for a revision.
 
@@ -174,6 +243,23 @@ def get_properties(revision) -> dict:
         else:
             result[name] = value
     return result
+
+
+def matrix(revisions, definitions) -> list:
+    """Return ``[{"revision": rev, "cells": [cell, ...]}, ...]``.
+
+    Cells are typed values; multi-valued definitions yield a list.
+    """
+    rows = []
+    for revision in revisions:
+        values = get_properties(revision)
+        rows.append(
+            {
+                "revision": revision,
+                "cells": [values.get(definition.name) for definition in definitions],
+            }
+        )
+    return rows
 
 
 def copy_properties(source, target, *, overwrite: bool = True, session=None):
@@ -227,11 +313,14 @@ def validate_required(revision, object_type=None) -> list:
 
 
 __all__ = [
+    "clear_properties",
     "coerce_value",
     "copy_properties",
     "data_type_of",
+    "delete_property",
     "get_definition",
     "get_properties",
+    "matrix",
     "read_value",
     "set_property",
     "validate_required",

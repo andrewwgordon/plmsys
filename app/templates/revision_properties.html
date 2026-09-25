@@ -1,0 +1,59 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Properties') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Revisions') }} / {{ revision }} / {{ _('Properties') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ revision }} <span class="label {{ 'label-success' if revision.release_state_name == 'Released' else 'label-default' }}">{{ revision.release_state_name }}</span></h1>
+    <p class="plmsys-muted">
+        {{ revision.business_object.object_number }} &mdash; {{ revision.business_object.name }}
+        ({{ revision.business_object.object_type.name }})
+    </p>
+</div>
+
+<form method="post" action="{{ url_for('RevisionPropertiesView.properties', pk=revision.id) }}" class="form-horizontal" role="form">
+    {{ form.hidden_tag() }}
+    {% for definition in definitions %}
+        {% set field = form['prop_' + definition.name] %}
+        <div class="form-group">
+            <label class="col-sm-3 control-label" for="{{ field.id }}">
+                {{ definition.name }}
+                {% if definition.mandatory %}<span class="text-danger" title="{{ _('Mandatory') }}">*</span>{% endif %}
+            </label>
+            <div class="col-sm-7">
+                {% if definition.multi_value %}
+                    {% for entry in field.entries %}
+                        {{ entry(class_='form-control', style='margin-bottom:4px;') }}
+                    {% endfor %}
+                    <button type="submit" name="add_field" value="prop_{{ definition.name }}" class="btn btn-default btn-sm">
+                        <i class="fa fa-plus"></i> {{ _('Add value') }}
+                    </button>
+                {% else %}
+                    {{ field(class_='form-control') }}
+                {% endif %}
+                {% if definition.description %}
+                    <p class="help-block">{{ definition.description }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                    <p class="text-danger">{{ error }}</p>
+                {% endfor %}
+                {% if definition.multi_value %}
+                    {% for entry in field.entries %}
+                        {% for error in entry.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <p class="plmsys-muted">{{ _('No properties are defined for this object type.') }}</p>
+    {% endfor %}
+
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-7">
+            <button type="submit" class="btn btn-primary">{{ _('Save') }}</button>
+            <a class="btn btn-default" href="{{ url_for('RevisionModelView.show', pk=revision.id) }}">{{ _('Cancel') }}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

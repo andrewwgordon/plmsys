@@ -8,8 +8,8 @@ EXPECTED_COUNTS = {
     "BusinessObject": 13,
     "Revision": 15,
     "RevisionLineage": 2,
-    "PropertyDefinition": 8,
-    "PropertyValue": 15,
+    "PropertyDefinition": 12,
+    "PropertyValue": 21,
     "RelationshipType": 8,
     "Relationship": 11,
     "BOMOccurrence": 2,
@@ -44,6 +44,30 @@ def test_seed_is_idempotent(app):
     with app.app_context():
         assert seed_data(db.session) is False
         assert db.session.query(models.ObjectType).count() == 8
+
+
+def test_seed_property_values_match_their_data_type(app):
+    """Every seeded value populates exactly the column for its definition."""
+    from app import models
+
+    columns = {
+        models.PropertyDataType.STRING: "string_value",
+        models.PropertyDataType.INTEGER: "integer_value",
+        models.PropertyDataType.FLOAT: "float_value",
+        models.PropertyDataType.DATE: "date_value",
+    }
+    with app.app_context():
+        values = db.session.query(models.PropertyValue).all()
+        assert values
+        for value in values:
+            populated = [
+                column
+                for column in columns.values()
+                if getattr(value, column) is not None
+            ]
+            assert len(populated) == 1, (value, populated)
+            data_type = models.PropertyDataType(value.property_definition.data_type)
+            assert populated[0] == columns[data_type], (value, data_type)
 
 
 def test_home_page_is_public(client):

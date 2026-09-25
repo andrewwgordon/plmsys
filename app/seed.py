@@ -20,6 +20,7 @@ from .models import (
     ObjectType,
     OccurrenceTrace,
     PropertyDefinition,
+    PropertyDataType,
     PropertyValue,
     Relationship,
     RelationshipType,
@@ -35,6 +36,15 @@ from .models import (
 
 
 # --- helpers ---------------------------------------------------------------
+
+
+# Maps PropertyDataType to its backing column on PropertyValue.
+_PROPERTY_COLUMNS = {
+    PropertyDataType.STRING: "string_value",
+    PropertyDataType.INTEGER: "integer_value",
+    PropertyDataType.FLOAT: "float_value",
+    PropertyDataType.DATE: "date_value",
+}
 
 
 def _release_states(session: Session) -> dict[str, ReleaseState]:
@@ -86,21 +96,27 @@ def _property_definitions(
     session: Session, object_types: dict[str, ObjectType]
 ) -> dict[str, PropertyDefinition]:
     requirement = object_types["Requirement"]
+    # (name, data_type, mandatory, multi_value, description)
     definitions = [
-        ("req_text", True, False, "The normative requirement statement."),
-        ("priority", False, False, "Priority classification (High/Medium/Low)."),
-        ("criticality", False, False, "Criticality classification."),
-        ("risk", False, False, "Associated risk level."),
-        ("source", False, False, "Origin of the requirement."),
-        ("verification_method", False, False, "Inspection/Analysis/Demonstration/Test."),
-        ("compliance_status", False, False, "Compliance status."),
-        ("validation_status", False, False, "Validation status."),
+        ("req_text", PropertyDataType.STRING, True, False, "The normative requirement statement."),
+        ("priority", PropertyDataType.STRING, False, False, "Priority classification (High/Medium/Low)."),
+        ("criticality", PropertyDataType.STRING, False, False, "Criticality classification."),
+        ("risk", PropertyDataType.STRING, False, False, "Associated risk level."),
+        ("risk_score", PropertyDataType.INTEGER, False, False, "Quantified risk score (0-100)."),
+        ("mass_kg", PropertyDataType.FLOAT, False, False, "Estimated mass in kilograms."),
+        ("due_date", PropertyDataType.DATE, False, False, "Target completion date."),
+        ("source", PropertyDataType.STRING, False, False, "Origin of the requirement."),
+        ("verification_method", PropertyDataType.STRING, False, False, "Inspection/Analysis/Demonstration/Test."),
+        ("compliance_status", PropertyDataType.STRING, False, False, "Compliance status."),
+        ("validation_status", PropertyDataType.STRING, False, False, "Validation status."),
+        ("tags", PropertyDataType.STRING, False, True, "Free-form classification tags."),
     ]
     props: dict[str, PropertyDefinition] = {}
-    for name, mandatory, multi_value, description in definitions:
+    for name, data_type, mandatory, multi_value, description in definitions:
         prop = PropertyDefinition(
             name=name,
             object_type=requirement,
+            data_type=data_type,
             mandatory=mandatory,
             multi_value=multi_value,
             description=description,
@@ -173,14 +189,16 @@ def _set_property(
     session: Session,
     revision: Revision,
     definition: PropertyDefinition,
-    value: str,
+    value,
     sequence_no: int = 1,
 ) -> PropertyValue:
+    """Store a typed property value in its data-type column."""
+    column = _PROPERTY_COLUMNS[PropertyDataType(definition.data_type)]
     prop_value = PropertyValue(
         revision=revision,
         property_definition=definition,
-        string_value=value,
         sequence_no=sequence_no,
+        **{column: value},
     )
     session.add(prop_value)
     return prop_value
@@ -278,6 +296,11 @@ def seed_data(session: Session) -> bool:
     _set_property(session, req1_revs[1], properties["priority"], "High")
     _set_property(session, req1_revs[1], properties["criticality"], "Safety")
     _set_property(session, req1_revs[1], properties["verification_method"], "Test")
+    _set_property(session, req1_revs[1], properties["risk_score"], 7)
+    _set_property(session, req1_revs[1], properties["mass_kg"], 12.5)
+    _set_property(session, req1_revs[1], properties["due_date"], date(2027, 3, 31))
+    _set_property(session, req1_revs[1], properties["tags"], "safety", sequence_no=1)
+    _set_property(session, req1_revs[1], properties["tags"], "range", sequence_no=2)
 
     _set_property(
         session, req2_revs[0], properties["req_text"],
@@ -285,6 +308,7 @@ def seed_data(session: Session) -> bool:
     )
     _set_property(session, req2_revs[0], properties["priority"], "High")
     _set_property(session, req2_revs[0], properties["source"], "Systems Engineering")
+    _set_property(session, req2_revs[0], properties["risk_score"], 4)
 
     _set_property(
         session, req3_revs[0], properties["req_text"],

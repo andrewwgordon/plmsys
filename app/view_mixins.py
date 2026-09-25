@@ -5,7 +5,7 @@ Phase 1 services (`revisions`, `lifecycle`) and own the transaction, flash and
 redirect handling. Business rules stay in ``app/services/``.
 """
 
-from flask import flash, redirect
+from flask import flash, redirect, url_for
 from flask_appbuilder import action
 from sqlalchemy.exc import IntegrityError
 
@@ -109,6 +109,20 @@ class RevisionLifecycleMixin(RevisionActionMixin):
             )
 
         return self._run_revision_action(item, operation, success)
+
+    @action(
+        "edit_properties",
+        "Edit Properties",
+        None,
+        "fa-list-alt",
+        single=True,
+        multiple=False,
+    )
+    def edit_properties_action(self, item):
+        """Open the metadata-driven property form for a revision."""
+        return redirect(
+            url_for("RevisionPropertiesView.properties", pk=item.id)
+        )
 
     def _transition(self, item, operation):
         def run(revision):

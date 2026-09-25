@@ -1,0 +1,66 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Property Matrix') }}{% endblock %}
+{% block breadcrumb %} / {{ _('Requirements') }} / {{ _('Property Matrix') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Property Matrix') }}</h1>
+    <p class="plmsys-muted">{{ _('Requirements against selected property definitions.') }}</p>
+</div>
+
+<form method="get" class="well well-sm" role="form">
+    <div class="form-group">
+        <label for="object_type">{{ _('Object type') }}</label>
+        <select id="object_type" name="object_type" class="form-control" style="display:inline-block; width:auto;">
+            {% for object_type in object_types %}
+                <option value="{{ object_type.name }}" {% if object_type.name == type_name %}selected{% endif %}>{{ object_type.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <span class="control-label">{{ _('Properties') }}:</span>
+        {% for definition in definitions %}
+            <label class="checkbox-inline">
+                <input type="checkbox" name="properties" value="{{ definition.name }}"
+                       {% if definition.name in selected_names %}checked{% endif %}>
+                {{ definition.name }}
+            </label>
+        {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">{{ _('Apply') }}</button>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover table-condensed">
+        <thead>
+            <tr>
+                <th>{{ _('Object') }}</th>
+                <th>{{ _('Revision') }}</th>
+                {% for definition in selected_definitions %}
+                    <th>{{ definition.name }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>{{ row.revision.business_object.object_number }}</td>
+                    <td>{{ row.revision.revision_id }}</td>
+                    {% for value in row.cells %}
+                        <td>
+                            {% if value is sequence and value is not string %}
+                                {{ value | join(', ') }}
+                            {% elif value is not none %}
+                                {{ value }}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% else %}
+                <tr><td colspan="{{ selected_definitions | length + 2 }}">{{ _('No data.') }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

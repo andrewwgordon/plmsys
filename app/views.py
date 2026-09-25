@@ -5,10 +5,15 @@ Views stay thin: revision/lifecycle actions delegate to ``app/services`` via
 ``app.view_mixins``; other entities provide CRUD over the scaffold.
 """
 
+import re
+
 from flask import g
 from flask_appbuilder import ModelView
 from flask_appbuilder.models.sqla.filters import FilterEqual
 from flask_appbuilder.models.sqla.interface import SQLAInterface
+from sqlalchemy import inspect as sa_inspect
+from wtforms import BooleanField
+from wtforms.validators import Optional
 
 from .extensions import db
 
@@ -36,7 +41,17 @@ from .models import (
     WorkflowTask,
 )
 from .services import ServiceError, lifecycle
+from .ui.properties import PropertyMatrixView, RevisionPropertiesView
 from .view_mixins import CreateRevisionMixin, RevisionLifecycleMixin
+
+
+# Property names become WTForms field names in the dynamic property form, so
+# they must be lower-case identifiers and must not collide with WTForms' own
+# attributes (plan §3.3).
+_PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_RESERVED_WTFORMS_NAMES = frozenset(
+    {"data", "errors", "meta", "validate", "csrf_token", "process"}
+)
 
 
 # ---------------------------------------------------------------------------
@@ -70,12 +85,74 @@ class PropertyDefinitionModelView(ModelView):
     edit_columns = ["object_type", "name", "data_type", "mandatory", "multi_value", "description"]
     search_columns = ["name"]
     order_columns = ["object_type", "name"]
+    # Non-nullable booleans are generated as `required` checkboxes by FAB, so a
+    # false value can never be submitted. Override them as optional booleans.
+    add_form_extra_fields = {
+        "mandatory": BooleanField("Mandatory", validators=[Optional()]),
+        "multi_value": BooleanField("Multi Value", validators=[Optional()]),
+    }
+    edit_form_extra_fields = {
+        "mandatory": BooleanField("Mandatory", validators=[Optional()]),
+        "multi_value": BooleanField("Multi Value", validators=[Optional()]),
+    }
     label_columns = {
         "object_type": "Object Type",
         "data_type": "Data Type",
         "mandatory": "Mandatory",
         "multi_value": "Multi Value",
     }
+
+    def pre_add(self, item):
+        self._validate_name(item)
+
+    def pre_update(self, item):
+        self._validate_name(item)
+        self._lock_existing(item)
+
+    def _validate_name(self, item):
+        if not _PROPERTY_NAME_RE.match(item.name or ""):
+            self._reject(
+                "Property name must match ^[a-z][a-z0-9_]*$ "
+                "(lower-case, with digits and underscores)"
+            )
+        if item.name in _RESERVED_WTFORMS_NAMES:
+            self._reject(f"Property name {item.name!r} is reserved by WTForms")
+
+    @staticmethod
+    def _reject(message):
+        # FAB flashes the exception but does not roll back; discard the pending
+        # change so a later autoflush cannot persist a rejected edit.
+        db.session.rollback()
+        raise Exception(message)
+
+    def _lock_existing(self, item):
+        """Block changes that would invalidate stored values.
+
+        ``pre_update`` runs after ``form.populate_obj``, so the old value is
+        read from SQLAlchemy's attribute history rather than the instance.
+        """
+        if item.id is None:
+            return
+        changed = [
+            attribute
+            for attribute in ("data_type", "object_type_id", "multi_value")
+            if sa_inspect(item).attrs[attribute].history.has_changes()
+        ]
+        if not changed:
+            return
+        with db.session.no_autoflush:
+            has_values = (
+                db.session.query(PropertyValue.id)
+                .filter_by(property_definition_id=item.id)
+                .first()
+                is not None
+            )
+        if has_values:
+            self._reject(
+                "Cannot change "
+                + ", ".join(changed)
+                + " while property values exist"
+            )
 
 
 class RelationshipTypeModelView(ModelView):
@@ -231,7 +308,16 @@ class RevisionLineageModelView(ModelView):
 
 
 class PropertyValueModelView(ModelView):
+    """Read-only raw values.
+
+    Every write must go through ``services.properties`` (the dynamic property
+    form) so coercion, mandatory and multi-value rules are applied — an
+    editable view here would bypass them and could store a value in the wrong
+    typed column.
+    """
+
     datamodel = SQLAInterface(PropertyValue)
+    base_permissions = ["can_list", "can_show"]
     list_columns = [
         "revision",
         "property_definition",
@@ -251,24 +337,6 @@ class PropertyValueModelView(ModelView):
         "sequence_no",
         "created_on",
         "modified_on",
-    ]
-    add_columns = [
-        "revision",
-        "property_definition",
-        "string_value",
-        "integer_value",
-        "float_value",
-        "date_value",
-        "sequence_no",
-    ]
-    edit_columns = [
-        "revision",
-        "property_definition",
-        "string_value",
-        "integer_value",
-        "float_value",
-        "date_value",
-        "sequence_no",
     ]
     search_columns = ["string_value", "sequence_no"]
     order_columns = ["revision", "property_definition"]
@@ -614,6 +682,14 @@ def register_views(appbuilder) -> None:
         category="Requirements",
         category_icon="fa-list-alt",
     )
+    appbuilder.add_view(
+        PropertyMatrixView,
+        "Property Matrix",
+        icon="fa-table",
+        category="Requirements",
+    )
+    # Reached from the "Edit Properties" revision action; no menu entry.
+    appbuilder.add_view_no_menu(RevisionPropertiesView)
 
     # Relationships
     appbuilder.add_view(

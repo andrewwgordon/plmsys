@@ -104,7 +104,7 @@ def test_multi_value_uses_sequences(session):
     definition = _definition(
         session,
         requirement.object_type,
-        "tags",
+        "multi_tags",
         PropertyDataType.STRING,
         multi_value=True,
     )
@@ -112,7 +112,7 @@ def test_multi_value_uses_sequences(session):
     properties.set_property(revision, definition, "one", sequence_no=1, session=session)
     properties.set_property(revision, definition, "two", sequence_no=2, session=session)
 
-    assert properties.get_properties(revision)["tags"] == ["one", "two"]
+    assert properties.get_properties(revision)["multi_tags"] == ["one", "two"]
 
 
 def test_single_value_always_uses_sequence_one(session):
@@ -176,3 +176,101 @@ def test_validate_required_reports_missing(session):
     )
 
     assert "req_text" in properties.validate_required(revision)
+
+
+def test_delete_property_removes_row(session):
+    requirement = _requirement(session)
+    revision = requirement.current_revision
+    definition = _definition(
+        session, requirement.object_type, "deletable", PropertyDataType.STRING,
+        multi_value=True,
+    )
+    properties.set_property(revision, definition, "a", sequence_no=1, session=session)
+    properties.set_property(revision, definition, "b", sequence_no=2, session=session)
+
+    assert properties.delete_property(revision, definition, 2, session=session)
+
+    assert properties.get_properties(revision)["deletable"] == ["a"]
+
+
+def test_delete_missing_property_returns_false(session):
+    requirement = _requirement(session)
+    definition = _definition(
+        session, requirement.object_type, "absent", PropertyDataType.STRING
+    )
+    assert not properties.delete_property(
+        requirement.current_revision, definition, session=session
+    )
+
+
+def test_delete_last_mandatory_value_rejected(session):
+    requirement = _requirement(session)
+    revision = requirement.current_revision
+    definition = _definition(
+        session, requirement.object_type, "must_keep", PropertyDataType.STRING,
+        mandatory=True,
+    )
+    properties.set_property(revision, definition, "x", session=session)
+
+    with pytest.raises(ServiceError):
+        properties.delete_property(revision, definition, 1, session=session)
+
+
+def test_mandatory_multi_value_per_definition(session):
+    requirement = _requirement(session)
+    revision = requirement.current_revision
+    definition = _definition(
+        session, requirement.object_type, "multi_mandatory",
+        PropertyDataType.STRING, mandatory=True, multi_value=True,
+    )
+    properties.set_property(revision, definition, "a", sequence_no=1, session=session)
+    properties.set_property(revision, definition, "b", sequence_no=2, session=session)
+
+    # Clearing one sequence is allowed while another value remains.
+    assert properties.delete_property(revision, definition, 2, session=session)
+    assert properties.get_properties(revision)["multi_mandatory"] == ["a"]
+
+    with pytest.raises(ServiceError):
+        properties.delete_property(revision, definition, 1, session=session)
+
+
+def test_clear_properties(session):
+    requirement = _requirement(session)
+    revision = requirement.current_revision
+    definition = _definition(
+        session, requirement.object_type, "clearable", PropertyDataType.STRING,
+        multi_value=True,
+    )
+    properties.set_property(revision, definition, "a", sequence_no=1, session=session)
+    properties.set_property(revision, definition, "b", sequence_no=2, session=session)
+
+    assert properties.clear_properties(revision, definition, session=session) == 2
+    assert "clearable" not in properties.get_properties(revision)
+
+
+def test_clear_mandatory_properties_rejected(session):
+    requirement = _requirement(session)
+    definition = _definition(
+        session, requirement.object_type, "clear_me", PropertyDataType.STRING,
+        mandatory=True,
+    )
+    properties.set_property(
+        requirement.current_revision, definition, "x", session=session
+    )
+
+    with pytest.raises(ServiceError):
+        properties.clear_properties(
+            requirement.current_revision, definition, session=session
+        )
+
+
+def test_matrix_returns_typed_cells(session):
+    requirement = _requirement(session, "REQ-0001")
+    revision = requirement.current_revision
+    priority = properties.get_definition(requirement.object_type, "priority", session=session)
+    risk = properties.get_definition(requirement.object_type, "risk_score", session=session)
+
+    rows = properties.matrix([revision], [priority, risk])
+
+    assert rows[0]["revision"] is revision
+    assert rows[0]["cells"] == ["High", 7]
