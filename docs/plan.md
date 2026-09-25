@@ -10,6 +10,8 @@ work. [`ui_plan.md`](./ui_plan.md) owns the interface and navigation design;
 this plan **references and schedules that design as part of the roadmap** so
 that UI is delivered with the functionality it depends on.
 
+The project path is: /c/users/andre/workspace/plmsys in Git Bash on Windows 11.
+
 ---
 
 ## 1. Goals & scope
@@ -43,6 +45,7 @@ authentication, ACLs.
 |---|---|---|
 | `app/models.py` | 21 domain models + `TimestampMixin` + `PropertyDataType` | Done |
 | `app/seed.py` | Idempotent `seed_data()` with representative business data | Done |
+| `app/services/` | Phase 1 domain services (`ServiceError`, revisions, properties, lifecycle, relationships) + unit tests | Done |
 | `app/views.py` | 21 `ModelView`s + task-oriented `register_views()` | Done |
 | `app/__init__.py` | Application factory: init db/migrate/appbuilder, seed | Done |
 | `app/security.py` | `PLMSecurityManager` — role bootstrap without schema creation | Done |
@@ -55,7 +58,9 @@ authentication, ACLs.
 **Verified:** schema creation, seeding (118 rows), idempotent re-seed, all 28
 list views and the application's own add forms render, and create/edit POSTs
 succeed (including the `PropertyDataType` enum round-trip). `app.db` is now
-gitignored. **Phase 0 is complete — see §5.**
+gitignored. **Phase 0 is complete — see §5.** The Phase 1 service layer and its
+tests are also in place (73 pytest tests pass; `flask db check` reports no
+schema drift), with foreign-key indexes added by migration `26f349ed091f`.
 
 **UI baseline:** the UI-0 shell is in place — a global header, left navigation
 panel, location bar, config-driven Home page and a Bootstrap colour schema. The
@@ -119,6 +124,12 @@ Workflow: `WorkflowProcess`, `WorkflowTask`.
 13. **Extend FAB's base layout; don't fork it.** Override only the needed Jinja
     blocks in a `base_layout.html` derived from `appbuilder/baselayout.html`
     ([`ui_plan.md`](./ui_plan.md) §10).
+14. **One lifecycle source of truth.** `RevisionReleaseState`/`ReleaseState`
+    is canonical; `Revision.status` and `BusinessObject.status` are
+    denormalised caches kept in sync by `app/services/lifecycle.py`. Never
+    write `status` directly from a view or seed — route it through the service.
+15. **FK columns are indexed.** Traversal-heavy foreign keys carry
+    `index=True`; new FKs must ship with an Alembic migration.
 
 ---
 
@@ -228,18 +239,19 @@ skeleton and a config-driven Bootstrap colour schema
 
 ---
 
-### Phase 1 — Domain services layer
+### Phase 1 — Domain services layer — ✅ Complete
 
 **Objective:** move business rules out of views/models into testable services.
 
-1. Create `app/services/` with a shared `ServiceError` exception.
-2. `revisions.py`:
-   - `next_revision_id(obj)` — compute the next revision label (`A→B→…`, `01→02`).
+1. ✅ Create `app/services/` with a shared `ServiceError` exception.
+2. ✅ `revisions.py`:
+   - `next_revision_id(obj, numeric=False)` — compute the next revision label
+     (`A→B→…`, `01→02`).
    - `create_revision(obj, title, description, user)` — insert `Revision`, add
-     `RevisionLineage` from the previous current revision, advance
-     `current_revision_id`, set `status="Draft"`.
+     `RevisionLineage` from the previous current revision, copy properties,
+     advance `current_revision_id`, start in the `Draft` lifecycle state.
    - `revert_to_revision(obj, revision)`.
-3. `properties.py`:
+3. ✅ `properties.py`:
    - `get_definition(object_type, name)`.
    - `set_property(revision, definition, value, sequence_no=1)` — coerce to the
      correct column based on `PropertyDataType`; enforce `mandatory` and
@@ -248,15 +260,20 @@ skeleton and a config-driven Bootstrap colour schema
    - `copy_properties(source_revision, target_revision)` — used when branching a
      revision.
    - `validate_required(revision, object_type)`.
-4. `relationships.py`:
+4. ✅ `relationships.py`:
    - `create_relationship(type_name, primary, secondary)` with duplicate and
      self-reference guards.
-   - `trace(revision, direction, type_names=None)` — transitive traversal for
-     traceability reports.
-5. Unit tests for each service against an in-memory/temp DB.
+   - `trace(revision, direction, type_names=None, max_depth=None)` — transitive
+     traversal for traceability reports.
+5. ✅ `lifecycle.py` (added during review to reconcile the dual status/cache
+   representation): `assign_release_state`, `release`, `obsolete`,
+   `current_state_name`, `ensure_released`, with the state machine
+   `Draft → Review → Approved → Released → Obsolete`.
+6. ✅ Unit tests under `tests/services/`, including a `PropertyDataType`
+   coercion matrix.
 
-**Deliverable:** services with >90% unit coverage; views can call them.
-**UI (UI-1):** begin the Object page tabs that consume the
+**Deliverable:** ✅ services with thorough unit coverage, ready for views to
+call. **UI (UI-1):** Object page tabs can now consume the
 `properties`/`relationships` services.
 
 ---
@@ -510,7 +527,8 @@ logged-in test client.
 | M5 — Integration | 10–12 | UI-2, UI-8, UI-9 | REST API, search/dashboard, responsive/role-tailored UI |
 | M6 — Hardening | 13 | UI-9 | CI, docs, accessibility audit, release |
 
-> **Progress:** M1 started — Phase 0 + UI-0 ✅ complete; Phases 1–2 pending.
+> **Progress:** M1 in progress — Phase 0 + UI-0 ✅ complete; Phase 1 services ✅
+> complete; Phase 2 pending.
 
 ---
 
