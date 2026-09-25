@@ -41,6 +41,12 @@ from .models import (
     WorkflowTask,
 )
 from .services import ServiceError, lifecycle
+from .ui.bom import (
+    AddOccurrenceView,
+    BomCoverageView,
+    BomTreeView,
+    LinkRequirementView,
+)
 from .ui.properties import PropertyMatrixView, RevisionPropertiesView
 from .ui.traceability import (
     DeriveRequirementView,
@@ -399,7 +405,14 @@ class RelationshipModelView(ModelView):
 
 
 class BOMOccurrenceModelView(ModelView):
+    """Read-only BOM rows.
+
+    Structure changes go through ``services.bom`` (the BOM pages); an editable
+    view here would bypass the cycle/duplicate/quantity guards.
+    """
+
     datamodel = SQLAInterface(BOMOccurrence)
+    base_permissions = ["can_list", "can_show"]
     list_columns = [
         "parent_revision",
         "child_revision",
@@ -413,8 +426,6 @@ class BOMOccurrenceModelView(ModelView):
         "quantity",
         "created_on",
     ]
-    add_columns = ["parent_revision", "child_revision", "find_number", "quantity"]
-    edit_columns = ["parent_revision", "child_revision", "find_number", "quantity"]
     order_columns = ["parent_revision", "find_number"]
     label_columns = {
         "parent_revision": "Parent",
@@ -424,10 +435,11 @@ class BOMOccurrenceModelView(ModelView):
 
 
 class OccurrenceTraceModelView(ModelView):
+    """Read-only occurrence traces (write via the BOM pages)."""
+
     datamodel = SQLAInterface(OccurrenceTrace)
+    base_permissions = ["can_list", "can_show"]
     list_columns = ["requirement_revision", "bom_occurrence", "created_on"]
-    add_columns = ["requirement_revision", "bom_occurrence"]
-    edit_columns = ["requirement_revision", "bom_occurrence"]
     order_columns = ["requirement_revision"]
     label_columns = {
         "requirement_revision": "Requirement",
@@ -714,18 +726,16 @@ def register_views(appbuilder) -> None:
 
     # BOM
     appbuilder.add_view(
-        BOMOccurrenceModelView,
-        "BOM Occurrences",
+        BomCoverageView,
+        "BOM Coverage",
         icon="fa-sitemap",
         category="BOM",
         category_icon="fa-sitemap",
     )
-    appbuilder.add_view(
-        OccurrenceTraceModelView,
-        "Occurrence Traces",
-        icon="fa-crosshairs",
-        category="BOM",
-    )
+    # Reached from revision/BOM pages; no menu entries.
+    appbuilder.add_view_no_menu(BomTreeView)
+    appbuilder.add_view_no_menu(AddOccurrenceView)
+    appbuilder.add_view_no_menu(LinkRequirementView)
 
     # Documents / datasets
     appbuilder.add_view(
@@ -800,6 +810,15 @@ def register_views(appbuilder) -> None:
     )
     appbuilder.add_view(
         RelationshipModelView, "Relationships", icon="fa-link", **setup
+    )
+    appbuilder.add_view(
+        BOMOccurrenceModelView, "BOM Occurrences", icon="fa-sitemap", **setup
+    )
+    appbuilder.add_view(
+        OccurrenceTraceModelView,
+        "Occurrence Traces",
+        icon="fa-crosshairs",
+        **setup,
     )
     appbuilder.add_view(
         RevisionRuleModelView, "Revision Rules", icon="fa-filter", **setup

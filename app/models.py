@@ -419,6 +419,11 @@ class BOMOccurrence(TimestampMixin, Model):
     """A parent/child occurrence in a bill of materials."""
 
     __tablename__ = "bom_occurrence"
+    __table_args__ = (
+        UniqueConstraint(
+            "parent_revision_id", "find_number", name="uq_bom_parent_find"
+        ),
+    )
 
     id = Column(Integer, primary_key=True)
     parent_revision_id = Column(
@@ -450,6 +455,13 @@ class OccurrenceTrace(Model):
     """Links a requirement revision to a BOM occurrence."""
 
     __tablename__ = "occurrence_trace"
+    __table_args__ = (
+        UniqueConstraint(
+            "requirement_revision_id",
+            "bom_occurrence_id",
+            name="uq_occurrence_trace_req_occ",
+        ),
+    )
 
     id = Column(Integer, primary_key=True)
     requirement_revision_id = Column(

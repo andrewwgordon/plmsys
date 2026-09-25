@@ -1,0 +1,45 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Add BOM line') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Products') }} / {{ revision.business_object.object_number }} / {{ _('Add BOM line') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Add child part') }}</h1>
+    <p class="plmsys-muted">
+        {{ _('Parent') }}: {{ revision.business_object.object_number }} &mdash;
+        {{ revision.business_object.name }} ({{ revision.revision_id }})
+    </p>
+</div>
+
+<form method="post" class="form-horizontal" role="form">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        <label class="col-sm-3 control-label">{{ _('Child part') }}</label>
+        <div class="col-sm-6">
+            {{ form.child(class_='form-control') }}
+            {% for error in form.child.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3 control-label">{{ _('Find number') }}</label>
+        <div class="col-sm-6">
+            {{ form.find_number(class_='form-control') }}
+            {% for error in form.find_number.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3 control-label">{{ _('Quantity') }}</label>
+        <div class="col-sm-6">
+            {{ form.quantity(class_='form-control') }}
+            {% for error in form.quantity.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <button type="submit" class="btn btn-primary">{{ _('Add') }}</button>
+            <a class="btn btn-default" href="{{ url_for('BomTreeView.tree', pk=revision.id) }}">{{ _('Cancel') }}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

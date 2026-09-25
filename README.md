@@ -31,15 +31,18 @@ Delivered so far:
 - **Traceability (Phase 4)** — relation forms (add relation, derive
   requirement), a revision relations section, a coverage-gap traceability
   matrix, typed-edge traversal, and a DB unique constraint on relationships.
+- **BOM (Phase 5)** — a cycle-safe product-structure explorer with quantity
+  roll-up, where-used, add-occurrence and requirement-trace forms, and a BOM
+  coverage-gap report, backed by `services/bom.py` and DB constraints.
 - **Migration-first schema** — Alembic owns all tables; the app never creates
   tables at runtime. FAB security roles/permissions are bootstrapped on start.
 - **Task-oriented UI shell (UI-0)** — global header, left navigation panel,
   location bar, Home page with KPI/entry tiles, and a config-driven Bootstrap
   colour schema.
-- **Test suite** — 137 pytest tests covering seeds, the shell, the colour
+- **Test suite** — 159 pytest tests covering seeds, the shell, the colour
   schema, the migration workflow, route-level access control, the service layer
   (including the `PropertyDataType` coercion matrix), the FAB revision
-  actions/guards, the property form/matrix and traceability.
+  actions/guards, the property form/matrix, traceability and the BOM.
 
 The Object page, global search, personal context and Structure Manager arrive in
 later phases.

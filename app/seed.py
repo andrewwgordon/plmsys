@@ -335,6 +335,10 @@ def seed_data(session: Session) -> bool:
         session, object_types["Part"], "PART-1002", "Thermal Plate",
         "Liquid-cooled thermal management plate.", ["A"],
     )
+    part_interconnect, part_interconnect_revs = _create_object(
+        session, object_types["Part"], "PART-1003", "Cell Interconnect",
+        "Busbar interconnect between cells.", ["A"],
+    )
     func_traction, func_traction_revs = _create_object(
         session, object_types["Function"], "FUNC-200", "Provide Traction Power",
         "Supply tractive power to the drivetrain.", ["A"],
@@ -413,14 +417,39 @@ def seed_data(session: Session) -> bool:
         find_number="20",
         quantity=1.0,
     )
-    session.add_all([bom_cell, bom_plate])
+    bom_interconnect = BOMOccurrence(
+        parent_revision=part_module_revs[0],
+        child_revision=part_interconnect_revs[0],
+        find_number="30",
+        quantity=4.0,
+    )
+    bom_interconnect_plate = BOMOccurrence(
+        parent_revision=part_interconnect_revs[0],
+        child_revision=part_plate_revs[0],
+        find_number="10",
+        quantity=1.0,
+    )
+    session.add_all(
+        [bom_cell, bom_plate, bom_interconnect, bom_interconnect_plate]
+    )
     session.flush()
 
-    session.add(
-        OccurrenceTrace(
-            requirement_revision=req4_revs[0], bom_occurrence=bom_plate
-        )
+    session.add_all(
+        [
+            OccurrenceTrace(
+                requirement_revision=req4_revs[0], bom_occurrence=bom_plate
+            ),
+            OccurrenceTrace(
+                requirement_revision=req3_revs[0], bom_occurrence=bom_cell
+            ),
+            OccurrenceTrace(
+                requirement_revision=req2_revs[0],
+                bom_occurrence=bom_interconnect,
+            ),
+        ]
     )
+    # bom_interconnect_plate is intentionally left without a requirement trace
+    # so the coverage report has output.
 
     # -- baseline -----------------------------------------------------------
     baseline = Baseline(

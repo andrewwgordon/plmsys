@@ -1,0 +1,42 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('BOM coverage') }}{% endblock %}
+{% block breadcrumb %} / {{ _('Products') }} / {{ _('BOM coverage') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('BOM lines without requirement coverage') }}</h1>
+    <p class="plmsys-muted">
+        {{ _('A BOM line is uncovered when no requirement is traced to it.') }}
+    </p>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover table-condensed">
+        <thead>
+            <tr>
+                <th>{{ _('Parent') }}</th>
+                <th>{{ _('Find') }}</th>
+                <th>{{ _('Child') }}</th>
+                <th>{{ _('Qty') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for occurrence in occurrences %}
+                <tr class="danger">
+                    <td>
+                        <a href="{{ url_for('BomTreeView.tree', pk=occurrence.parent_revision_id) }}">
+                            {{ occurrence.parent_revision.business_object.object_number }}
+                        </a>
+                    </td>
+                    <td>{{ occurrence.find_number }}</td>
+                    <td>{{ occurrence.child_revision.business_object.object_number }} &mdash; {{ occurrence.child_revision.business_object.name }}</td>
+                    <td>{{ occurrence.quantity }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4">{{ _('Every BOM line is covered.') }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

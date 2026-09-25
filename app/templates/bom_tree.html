@@ -1,0 +1,67 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('BOM') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Products') }} / {{ revision.business_object.object_number }} / {{ _('BOM') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>
+        {{ revision.business_object.object_number }} &mdash; {{ revision.business_object.name }}
+        <span class="label label-default">{{ revision.release_state_name }}</span>
+    </h1>
+    <p class="plmsys-muted">{{ _('Revision') }} {{ revision.revision_id }}</p>
+    <p>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('AddOccurrenceView.add', pk=revision.id) }}">
+            <i class="fa fa-plus"></i> {{ _('Add child part') }}
+        </a>
+        <a class="btn btn-default btn-sm" href="{{ url_for('BomCoverageView.coverage') }}">
+            <i class="fa fa-exclamation-triangle"></i> {{ _('Coverage gaps') }}
+        </a>
+    </p>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover table-condensed">
+        <thead>
+            <tr>
+                <th>{{ _('Find') }}</th>
+                <th>{{ _('Child') }}</th>
+                <th>{{ _('Rev') }}</th>
+                <th>{{ _('Qty') }}</th>
+                <th>{{ _('Roll-up') }}</th>
+                <th>{{ _('Requirement traces') }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td style="padding-left: {{ 8 + (row.depth - 1) * 20 }}px;">
+                        {{ row.occurrence.find_number }}
+                    </td>
+                    <td>
+                        {{ row.child_revision.business_object.object_number }} &mdash;
+                        {{ row.child_revision.business_object.name }}
+                    </td>
+                    <td>{{ row.child_revision.revision_id }}</td>
+                    <td>{{ row.quantity }}</td>
+                    <td>{{ row.rollup }}</td>
+                    <td>
+                        {% for requirement in row.traces %}
+                            <a href="{{ url_for('RevisionModelView.show', pk=requirement.id) }}">{{ requirement.business_object.object_number }}</a>{% if not loop.last %}, {% endif %}
+                        {% else %}
+                            <span class="label label-danger">{{ _('uncovered') }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <a class="btn btn-xs btn-default" href="{{ url_for('AddOccurrenceView.add', pk=row.child_revision.id) }}">{{ _('Add child') }}</a>
+                        <a class="btn btn-xs btn-default" href="{{ url_for('LinkRequirementView.link', pk=row.occurrence.id) }}">{{ _('Trace') }}</a>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7">{{ _('No BOM lines.') }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

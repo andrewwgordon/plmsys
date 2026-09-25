@@ -555,7 +555,7 @@ click-through cells; Relations section cross-links.
 
 ---
 
-### Phase 5 — BOM & occurrence trace
+### Phase 5 — BOM & occurrence trace — ✅ Complete
 
 **Objective:** a cycle-safe product-structure explorer with quantity roll-up
 and requirement-to-BOM coverage.
@@ -613,6 +613,19 @@ and requirement-to-BOM coverage.
    (self/duplicate/cycle/quantity/type), the DB unique constraints, the tree
    render, the add form, the per-line traces, the coverage report, and the seed
    counts. Reuse the `tests/views/conftest.py` isolation fixture.
+
+**Delivered:** `BOMOccurrence` and `OccurrenceTrace` gained unique constraints
+(migration `b82bd12c1ba6`); `app/services/bom.py` provides
+`add_occurrence`/`remove_occurrence` (self/duplicate/cycle/quantity/Part
+guards), `would_create_cycle`, `explode` (cycle-safe, depth-capped, accumulated
+quantity), `bom_rollup`, `where_used`, `link_requirement` and
+`uncovered_occurrences` — all bulk-loaded. `app/ui/bom.py` provides the
+read-only `BomTreeView` (+ data pane), `AddOccurrenceView`,
+`LinkRequirementView` and `BomCoverageView`; a **BOM** revision action links in.
+`BOMOccurrenceModelView`/`OccurrenceTraceModelView` are read-only and moved to
+Setup. The seed has a 3-level structure (with a shared plate) and one uncovered
+line. Covered by `tests/services/test_bom.py` and
+`tests/views/test_bom_views.py`.
 
 **Deliverable:** a cycle-safe BOM explorer with roll-up quantity, plus
 requirement-to-BOM coverage (per line and gap report); self/duplicate/cycle/
@@ -780,7 +793,8 @@ logged-in test client.
 
 > **Progress:** M1 in progress — Phase 0 + UI-0 ✅ complete; Phase 1 services ✅
 > complete; Phase 2 revision/lifecycle ✅ complete; Phase 3 properties ✅
-> complete; Phase 4 traceability ✅ complete; Phase 5 pending.
+> complete; Phase 4 traceability ✅ complete; Phase 5 BOM ✅ complete; Phase 6
+> pending.
 
 ---
 

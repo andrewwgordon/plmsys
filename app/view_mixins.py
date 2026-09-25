@@ -160,6 +160,18 @@ class RevisionLifecycleMixin(RevisionActionMixin):
         """Open the derive-requirement form for a revision."""
         return redirect(url_for("DeriveRequirementView.derive", pk=item.id))
 
+    @action(
+        "view_bom",
+        "BOM",
+        None,
+        "fa-sitemap",
+        single=True,
+        multiple=False,
+    )
+    def view_bom_action(self, item):
+        """Open the product structure for a Part revision."""
+        return redirect(url_for("BomTreeView.tree", pk=item.id))
+
     def _transition(self, item, operation):
         def run(revision):
             # The lifecycle service returns the assigned ReleaseState; keep the

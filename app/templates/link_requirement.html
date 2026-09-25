@@ -1,0 +1,34 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Trace requirement') }}{% endblock %}
+{% block breadcrumb %} / {{ _('Products') }} / {{ occurrence.parent_revision.business_object.object_number }} / {{ _('Trace requirement') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Trace requirement to BOM line') }}</h1>
+    <p class="plmsys-muted">
+        {{ occurrence.parent_revision.business_object.object_number }}
+        ({{ occurrence.parent_revision.revision_id }})
+        &rarr; {{ occurrence.child_revision.business_object.object_number }}
+        ({{ occurrence.child_revision.revision_id }}), {{ _('find') }} {{ occurrence.find_number }}
+    </p>
+</div>
+
+<form method="post" class="form-horizontal" role="form">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        <label class="col-sm-3 control-label">{{ _('Requirement') }}</label>
+        <div class="col-sm-6">
+            {{ form.requirement(class_='form-control') }}
+            {% for error in form.requirement.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+            <p class="help-block">{{ _("The requirement's current revision is linked.") }}</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <button type="submit" class="btn btn-primary">{{ _('Trace') }}</button>
+            <a class="btn btn-default" href="{{ url_for('BomTreeView.tree', pk=occurrence.parent_revision_id) }}">{{ _('Cancel') }}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
