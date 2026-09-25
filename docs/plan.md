@@ -557,20 +557,69 @@ click-through cells; Relations section cross-links.
 
 ### Phase 5 — BOM & occurrence trace
 
-1. Add a **BOM tree** view for a `Part` revision:
-   - Recursive `BOMOccurrence` traversal with roll-up quantity.
-   - Read-only `BaseView` rendering `templates/bom_tree.html`.
-2. Add "Add child occurrence" action on `RevisionModelView` (Part revisions).
-3. `services/bom.py`: `where_used(revision)`, `bom_rollup(revision)`,
-   `explode(revision, depth)`.
-4. Occurrence trace:
-   - UI to link a requirement revision to a BOM occurrence
-     (`OccurrenceTrace`).
-   - Report: "requirements traced to this BOM line" and
-     "BOM lines without requirement coverage" (coverage gap report).
+**Objective:** a cycle-safe product-structure explorer with quantity roll-up
+and requirement-to-BOM coverage.
 
-**Deliverable:** BOM explorer + requirement coverage report.
-**UI (UI-4):** Structure Manager — tree, data panes, search area, status.
+> **Dependency:** unlike Phases 1–4 there is no BOM service yet, so this phase
+> builds `services/bom.py`. It reuses the Phase 2 action/transaction pattern,
+> the Phase 3/4 `BaseView` page pattern, and the Phase 4 integrity lessons
+> (unique constraints + `IntegrityError` handling).
+
+1. **Model and service integrity (do this first):**
+   - add `UniqueConstraint(parent_revision_id, find_number)` to
+     `BOMOccurrence` and `UniqueConstraint(requirement_revision_id,
+     bom_occurrence_id)` to `OccurrenceTrace`, plus an Alembic migration;
+   - create `services/bom.py` with:
+     - `add_occurrence(parent, child, find_number, quantity)` /
+       `remove_occurrence(occurrence)` guarding self-lines, duplicates,
+       **cycles** (`would_create_cycle(parent, child)`), `quantity <= 0`, and
+       non-`Part` revisions; keep the guards in the service and handle
+       `IntegrityError` in the form (Phase 4 pattern);
+     - `explode(revision, max_depth=None)` → flat
+       `[{occurrence, child_revision, depth, quantity}]`, cycle-safe with a
+       visited set and depth cap;
+     - `bom_rollup(revision)` → `{child_revision_id: aggregate_quantity}` (sum
+       of products over all paths; define rounding);
+     - `where_used(revision, transitive=False)` → immediate (default) or
+       transitive reverse BOM.
+   - bulk-load the structure (one query per level) and eager-load
+     `child_revision`/`business_object` so `explode`/roll-up are not per-node
+     N+1.
+2. **BOM UI:**
+   - `BomTreeView` (read-only `BaseView` + `templates/bom_tree.html`) for a
+     `Part` revision's current revision: recursive tree with per-line
+     find_number, child object/revision, quantity and status, plus a data pane
+     (requirement traces, status); enforce Part-only and a depth cap.
+   - **Add child occurrence** — a `BaseView` **form** (an `@action` cannot pick
+     the child): pick a child `Part` object, `find_number`, `quantity` →
+     `services.bom.add_occurrence`. Link it from the revision show.
+   - make `BOMOccurrenceModelView` read-only (or Setup-only) and remove it from
+     the primary nav ([`ui_plan.md`](./ui_plan.md) §6.2) so raw rows cannot
+     bypass the guards.
+3. **Occurrence trace UI:**
+   - a `BaseView` form to link a requirement's **current revision** to a BOM
+     occurrence via a new service helper (`link_requirement(occurrence,
+     revision)`) with a duplicate guard;
+   - per-line pane "requirements traced to this BOM line";
+   - report "BOM lines without requirement coverage" (an occurrence with no
+     `OccurrenceTrace`), mirroring the Phase 4 coverage-gap wording;
+   - make `OccurrenceTraceModelView` read-only (or Setup-only) and remove it
+     from the primary nav.
+4. **Seed** a 3-level structure with a shared subassembly and non-unit
+   quantities, several `OccurrenceTrace` rows, and at least one **uncovered**
+   BOM line so the coverage report has output; update `EXPECTED_COUNTS`.
+5. **Tests** (`tests/services/`, `tests/views/`): `explode` (depth + cycle
+   safety), `bom_rollup`, `where_used`, `add_occurrence` guards
+   (self/duplicate/cycle/quantity/type), the DB unique constraints, the tree
+   render, the add form, the per-line traces, the coverage report, and the seed
+   counts. Reuse the `tests/views/conftest.py` isolation fixture.
+
+**Deliverable:** a cycle-safe BOM explorer with roll-up quantity, plus
+requirement-to-BOM coverage (per line and gap report); self/duplicate/cycle/
+quantity violations rejected at the service and DB level.
+**UI (UI-4):** Phase 5 ships the read-only tree + data pane (interactive
+expand/collapse, search/filter, status symbols and the change context are added
+by UI-4).
 
 ---
 
