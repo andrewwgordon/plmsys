@@ -507,6 +507,83 @@ shell and FAB colours/fonts. **Note:** custom app assets now live under
 `app/static/` by changing one `static_folder` argument and the paths in
 `config.py` if preferred.
 
+### UI-0c — Make `plmsys.css` the FAB theme (planned)
+
+**Objective:** stop loading Bootswatch `flatly.css` and make
+`app/templates/static/plmsys.css` the single theme for FAB's inner views, so
+list/show/add/edit pages, filters, pagination, modals and alerts render with
+exactly the shell's colours and fonts.
+
+**Root cause:** FAB's `appbuilder/init.html` loads CSS in this order:
+`bootstrap.min.css` → Font Awesome → `themes/<APP_THEME>` → datepicker/select2 →
+`ab.css`. `config.py` sets `APP_THEME = "flatly.css"`, so a full Bootswatch
+3.4.1 theme is injected. Our `base_layout.html` then loads `plmsys.css` last, so
+it wins only where it declares a rule; everything else inherits flatly.
+
+**Approach (recommended): disable the Bootswatch theme and make `plmsys.css` a
+complete Bootstrap 3 theme layer.**
+
+1. `config.py`: set `APP_THEME = ""` (FAB's `{% if appbuilder.app_theme %}`
+   then emits no theme link). Keep `{{ super() }}` in `base_layout.html` so
+   FAB's core CSS, Font Awesome and widgets still load; `plmsys.css` stays the
+   last stylesheet. This is upgrade-safe and drops ~120 KB of flatly CSS.
+2. Promote `plmsys.css` from an "override sheet" to a documented Bootstrap 3
+   theme: mirror Bootstrap 3's Less design tokens as `--plmsys-*` custom
+   properties in `:root` (brand/state colours + `-hover`/`-border`, grays,
+   `body`/text/link colours, font family/size/line-height, heading scale,
+   radii, navbar/panel/well/table/form/code tokens). Then override every
+   component that uses those tokens (matrix below).
+3. Retheme the FAB-only helpers from `ab.css` (`.wrap`, `.fixed-footer`
+   `#f5f5f5`, `.filter`, `.action_checkboxes`, `.img-select/.img-unselect`,
+   `.cursor-hand`, `.fa-black`).
+4. Keep `plmsys.css` last in `head_css`; add `id="plmsys-theme"` to the
+   `<link>` so tests can assert order and that flatly is gone.
+
+**Compatibility matrix — required coverage (Bootstrap 3.4.1 + FAB):**
+
+| Area | Selectors/definitions that must be themed |
+|---|---|
+| Buttons | `.btn` + `.btn-primary/default/success/info/warning/danger/link`, `:hover/:focus/:active/.active/[disabled]`, `.btn-xs/-sm/-lg`, `.btn-group`, `.btn-block`, `.caret` |
+| Tables | `.table`, `.table-striped/-bordered/-hover/-condensed/-responsive`, `thead/tbody/tfoot`, row states `.active/.success/.info/.warning/.danger` |
+| Forms | `.form-control` `:focus`/`[disabled]`/`[readonly]`, `.form-group`, `.control-label`, `.help-block`, `.input-group(-addon/-btn)`, `.has-success/-warning/-error`, `.checkbox`, `.radio`, `select`, `select2-*`, datepicker |
+| Panels | `.panel`, `.panel-default/-primary/-success/-info/-warning/-danger`, `.panel-heading/-title/-body/-footer`, `.panel-group` |
+| Navigation | `.nav`, `.nav-tabs`, `.nav-pills`, `.nav-stacked`, `.navbar`, `.navbar-default`, `.navbar-inverse`, `.navbar-nav/.navbar-brand/.navbar-toggle`, `.dropdown-menu/-header/-divider` |
+| Feedback | `.alert` + variants + `.alert-link`, `.label` + variants, `.badge`, `.progress` + `.progress-bar-*`, `.well`, `.close` |
+| Layout/misc | `.pagination`, `.pager`, `.breadcrumb`, `.list-group(-item)`, `.modal(-content/-header/-body/-footer)`, `.tooltip`, `.popover`, `.media`, `.thumbnail` |
+| Utilities | `.text-*`, `.bg-*`, `.text-muted`, `.pull-*`, `.sr-only` |
+| Typography | font on `body`, `h1–h6/.h1–.h6`, `button/input/select/textarea`, `.form-control`, `.btn`, `.dropdown-menu`, `code/pre/kbd/samp` |
+
+**Rules to keep it FAB-compatible:**
+
+- Do **not** remove `{{ super() }}`; only app CSS may follow it.
+- Target Bootstrap 3 class names exactly as FAB emits them (the matrix above);
+  do not use Bootstrap 4/5 names such as `.form-select`, `.btn-close`,
+  `--bs-*`.
+- Keep selectors at Bootstrap's own specificity and avoid `!important` except
+  where Bootstrap uses it (utilities). Loading last resolves most conflicts.
+- Re-declare state pseudo-classes for every colour variant, or Bootstrap's
+  default `#337ab7`/`#5cb85c`/… hover/active states show through.
+- Set fonts explicitly rather than inheriting Bootswatch's `Lato`
+  `@import`.
+
+**Alternative (only if byte-perfect fidelity is required):** compile a custom
+Bootstrap 3.4.1 build with the PLMSys Less/Sass variables and load it as the
+full theme (Option B). This adds a Node/Less build step and duplicates
+Bootstrap unless the core is suppressed; prefer the override approach above.
+
+**Tests:** assert no rendered page (shell or FAB list/show) requests
+`flatly.css`; assert `/static/plmsys.css` is the last stylesheet; assert the
+file defines the token set and every selector in the compatibility matrix;
+add a visual smoke test of a FAB list/show page.
+
+**Acceptance criteria:** no Bootswatch theme is requested; `plmsys.css` is the
+last stylesheet and defines the full token + component matrix; FAB inner pages
+match the shell's colours/fonts; all tests pass; the shell is unchanged.
+
+**Risk:** incomplete coverage lets Bootstrap defaults leak. Mitigate with the
+compatibility matrix, a visual smoke test, and fall back to the compiled-theme
+alternative if needed.
+
 ### UI-1 — Object page
 
 1. Implement `ObjectDetailView(BaseView)` at `route_base = "/object"` with

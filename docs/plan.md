@@ -207,6 +207,7 @@ The roadmap runs two interleaved tracks:
 |---|---|---|
 | UI-0 ✅ | Global shell, theme, task-oriented menu, Home skeleton | Phase 0 |
 | UI-0b ✅ | External stylesheet; align all FAB core components (colours + fonts) with the shell | Phase 0 follow-up |
+| UI-0c (planned) | Disable Bootswatch `flatly.css`; make `plmsys.css` the FAB theme with complete Bootstrap 3/FAB token + component coverage | UI-0b follow-up |
 | UI-1 | Object page: Summary / Details / Relations / History | Phases 1–3 |
 | UI-2 | Global search, advanced/saved searches | Phase 11 |
 | UI-3 | Favorites, Recent, Worklist, user context prefs | Phases 9, 12 |
@@ -246,6 +247,13 @@ skeleton and a Bootstrap colour schema
 overrides were extended to every core FAB/Bootstrap 3 component, with shared
 colour and font custom properties so the shell and FAB render identically. See
 [`ui_plan.md`](./ui_plan.md) UI-0b.
+
+**UI (UI-0c — planned):** FAB still loads the Bootswatch `flatly.css`
+(`APP_THEME`) *before* `plmsys.css`, so any component we have not explicitly
+overridden falls back to flatly. The plan is to set `APP_THEME = ""` and
+expand `plmsys.css` into a complete Bootstrap 3 theme layer that mirrors
+Bootstrap's design tokens and covers the full component matrix. Detail and the
+compatibility checklist are in [`ui_plan.md`](./ui_plan.md) UI-0c.
 
 ---
 
