@@ -627,6 +627,14 @@ Setup. The seed has a 3-level structure (with a shared plate) and one uncovered
 line. Covered by `tests/services/test_bom.py` and
 `tests/views/test_bom_views.py`.
 
+**Review follow-ups (applied):** traversal fetches one level at a time
+(batched `IN` queries, O(depth) not O(nodes)); `bom_rollup` reuses the exploded
+rows instead of re-walking; quantities must be finite and positive; a back-edge
+is marked as `cycle` in the tree; the BOM tree shows a **Where used** panel and
+supports deleting a line (`RemoveOccurrenceView`); and tests cover the DB
+constraints, non-requirement traces, `remove_occurrence`, non-finite quantities
+and the batched query count.
+
 **Deliverable:** a cycle-safe BOM explorer with roll-up quantity, plus
 requirement-to-BOM coverage (per line and gap report); self/duplicate/cycle/
 quantity violations rejected at the service and DB level.

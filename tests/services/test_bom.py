@@ -1,7 +1,10 @@
 """BOM service: traversal, roll-up, where-used, guards and coverage."""
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.exc import IntegrityError
 
+from app.extensions import db
 from app.models import BOMOccurrence, BusinessObject, OccurrenceTrace
 from app.services import ServiceError, bom
 
@@ -172,3 +175,83 @@ def test_uncovered_occurrences_reports_gap(session):
     # PART-1003/find 10 (interconnect plate) is intentionally untraced.
     assert "10" in find_numbers
     assert len(uncovered) == 1
+
+
+def test_explode_queries_are_batched(session):
+    module = _revision(session, "PART-1000")
+    statements = []
+
+    def _record(conn, cursor, statement, params, context, executemany):
+        statements.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", _record)
+    try:
+        rows = bom.explode(module)
+    finally:
+        event.remove(db.engine, "before_cursor_execute", _record)
+
+    assert rows
+    # One BOM query per level plus a final look-ahead, not one per node
+    # (`release_states` selectin loads are unrelated).
+    bom_queries = [s for s in statements if "FROM bom_occurrence" in s]
+    assert len(bom_queries) <= 4
+
+
+@pytest.mark.parametrize("quantity", [float("nan"), float("inf")])
+def test_add_occurrence_rejects_non_finite_quantity(session, quantity):
+    module = _revision(session, "PART-1000")
+    cell = _revision(session, "PART-1001")
+    with pytest.raises(ServiceError):
+        bom.add_occurrence(module, cell, "40", quantity)
+
+
+def test_link_requirement_rejects_non_requirement(session):
+    occurrence = session.query(BOMOccurrence).first()
+    part = _revision(session, "PART-1001")
+    with pytest.raises(ServiceError):
+        bom.link_requirement(occurrence, part, session=session)
+
+
+def test_remove_occurrence(session):
+    module = _revision(session, "PART-1000")
+    occurrence = (
+        session.query(BOMOccurrence)
+        .filter_by(parent_revision_id=module.id, find_number="30")
+        .one()
+    )
+    before = len(bom.explode(module))
+
+    assert bom.remove_occurrence(occurrence, session=session)
+
+    assert len(bom.explode(module)) < before
+
+
+def test_bom_db_unique_constraint(session):
+    module = _revision(session, "PART-1000")
+    cell = _revision(session, "PART-1001")
+    session.add(
+        BOMOccurrence(
+            parent_revision=module,
+            child_revision=cell,
+            find_number="10",
+            quantity=1.0,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.flush()
+    session.rollback()
+
+
+def test_occurrence_trace_db_unique_constraint(session):
+    plate_line = (
+        session.query(BOMOccurrence).filter_by(find_number="20").first()
+    )
+    requirement = _revision(session, "REQ-0004")
+    session.add(
+        OccurrenceTrace(
+            requirement_revision=requirement, bom_occurrence=plate_line
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.flush()
+    session.rollback()

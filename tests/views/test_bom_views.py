@@ -147,3 +147,40 @@ def test_bom_views_deny_viewer(db_session, viewer_client):
     assert viewer_client.get(f"/bom/{module.id}/").status_code == 403
     assert viewer_client.get(f"/bom/{module.id}/add").status_code == 403
     assert viewer_client.get("/bom-coverage/").status_code == 403
+
+
+def test_bom_tree_shows_where_used(db_session, admin_client):
+    plate = _revision(db_session, "PART-1002")
+
+    body = admin_client.get(f"/bom/{plate.id}/").get_data(as_text=True)
+
+    assert "Where used" in body
+    assert "PART-1000" in body   # direct parent
+    assert "PART-1003" in body   # parent via the subassembly
+
+
+def test_remove_occurrence_via_view(db_session, admin_client):
+    module = _revision(db_session, "PART-1000")
+    occurrence = (
+        db_session.query(BOMOccurrence)
+        .filter_by(parent_revision_id=module.id, find_number="30")
+        .one()
+    )
+    before = db_session.query(BOMOccurrence).count()
+
+    response = admin_client.post(
+        f"/bom/occurrence/{occurrence.id}/delete", follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"BOM line removed" in response.data
+    db_session.expire_all()
+    assert db_session.query(BOMOccurrence).count() == before - 1
+
+
+def test_remove_occurrence_denied_for_viewer(db_session, viewer_client):
+    occurrence = db_session.query(BOMOccurrence).first()
+    assert (
+        viewer_client.post(f"/bom/occurrence/{occurrence.id}/delete").status_code
+        == 403
+    )

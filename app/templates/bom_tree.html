@@ -38,6 +38,7 @@
                 <tr>
                     <td style="padding-left: {{ 8 + (row.depth - 1) * 20 }}px;">
                         {{ row.occurrence.find_number }}
+                        {% if row.cycle %}<span class="label label-warning">{{ _('cycle') }}</span>{% endif %}
                     </td>
                     <td>
                         {{ row.child_revision.business_object.object_number }} &mdash;
@@ -56,6 +57,10 @@
                     <td>
                         <a class="btn btn-xs btn-default" href="{{ url_for('AddOccurrenceView.add', pk=row.child_revision.id) }}">{{ _('Add child') }}</a>
                         <a class="btn btn-xs btn-default" href="{{ url_for('LinkRequirementView.link', pk=row.occurrence.id) }}">{{ _('Trace') }}</a>
+                        <form method="post" action="{{ url_for('RemoveOccurrenceView.remove', pk=row.occurrence.id) }}" style="display:inline" onsubmit="return confirm('{{ _('Remove this BOM line?') }}');">
+                            {{ delete_form.hidden_tag() }}
+                            <button type="submit" class="btn btn-xs btn-danger" title="{{ _('Remove line') }}"><i class="fa fa-trash"></i></button>
+                        </form>
                     </td>
                 </tr>
             {% else %}
@@ -64,4 +69,24 @@
         </tbody>
     </table>
 </div>
+
+{% if used_in %}
+    <div class="panel panel-default">
+        <div class="panel-heading"><h4 class="panel-title">{{ _('Where used') }}</h4></div>
+        <div class="panel-body">
+            <ul class="list-unstyled">
+                {% for entry in used_in %}
+                    <li>
+                        <i class="fa fa-level-up"></i>
+                        <a href="{{ url_for('BomTreeView.tree', pk=entry.parent_revision.id) }}">
+                            {{ entry.parent_revision.business_object.object_number }} &mdash;
+                            {{ entry.parent_revision.business_object.name }}
+                        </a>
+                        ({{ _('find') }} {{ entry.occurrence.find_number }}, {{ _('qty') }} {{ entry.occurrence.quantity }})
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endif %}
 {% endblock %}

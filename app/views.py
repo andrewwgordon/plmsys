@@ -46,6 +46,7 @@ from .ui.bom import (
     BomCoverageView,
     BomTreeView,
     LinkRequirementView,
+    RemoveOccurrenceView,
 )
 from .ui.properties import PropertyMatrixView, RevisionPropertiesView
 from .ui.traceability import (
@@ -736,6 +737,7 @@ def register_views(appbuilder) -> None:
     appbuilder.add_view_no_menu(BomTreeView)
     appbuilder.add_view_no_menu(AddOccurrenceView)
     appbuilder.add_view_no_menu(LinkRequirementView)
+    appbuilder.add_view_no_menu(RemoveOccurrenceView)
 
     # Documents / datasets
     appbuilder.add_view(

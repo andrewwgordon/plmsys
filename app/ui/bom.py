@@ -5,6 +5,8 @@ forms, and the requirement-coverage report. All writes go through
 ``services.bom``.
 """
 
+import math
+
 from flask import abort, flash, redirect, url_for
 from flask_appbuilder import BaseView, expose
 from flask_appbuilder.security.decorators import has_access
@@ -12,7 +14,7 @@ from flask_wtf import FlaskForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from wtforms import FloatField, SelectField, StringField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, ValidationError
 
 from ..extensions import db
 from ..models import BOMOccurrence, BusinessObject, ObjectType, OccurrenceTrace, Revision
@@ -53,20 +55,35 @@ def _label(business_object):
 
 
 def _is_part(revision) -> bool:
+    business_object = revision.business_object
     return (
-        revision.business_object is not None
-        and revision.business_object.object_type.name == "Part"
+        business_object is not None
+        and business_object.object_type is not None
+        and business_object.object_type.name == "Part"
     )
+
+
+def _finite_positive(form, field):
+    if field.data is None or not math.isfinite(field.data) or field.data <= 0:
+        raise ValidationError(
+            "Quantity must be a finite number greater than zero."
+        )
 
 
 class AddOccurrenceForm(FlaskForm):
     child = SelectField("Child part", coerce=int, choices=[])
     find_number = StringField("Find number", validators=[DataRequired()])
-    quantity = FloatField("Quantity", default=1.0, validators=[DataRequired()])
+    quantity = FloatField(
+        "Quantity", default=1.0, validators=[DataRequired(), _finite_positive]
+    )
 
 
 class LinkRequirementForm(FlaskForm):
     requirement = SelectField("Requirement", coerce=int, choices=[])
+
+
+class DeleteForm(FlaskForm):
+    """Empty form so the delete action is CSRF-protected."""
 
 
 def _trace_map(session, occurrence_ids):
@@ -105,14 +122,18 @@ class BomTreeView(BaseView):
             return redirect(url_for("RevisionModelView.show", pk=pk))
 
         rows = bom.explode(revision)
-        rollup = bom.bom_rollup(revision)
+        rollup = bom.bom_rollup(revision, rows=rows)
         traces = _trace_map(db.session, [row["occurrence"].id for row in rows])
         for row in rows:
             row["traces"] = traces.get(row["occurrence"].id, [])
             row["rollup"] = rollup.get(row["child_revision"].id)
 
         return self.render_template(
-            "bom_tree.html", revision=revision, rows=rows
+            "bom_tree.html",
+            revision=revision,
+            rows=rows,
+            used_in=bom.where_used(revision),
+            delete_form=DeleteForm(),
         )
 
 
@@ -225,9 +246,35 @@ class BomCoverageView(BaseView):
         )
 
 
+class RemoveOccurrenceView(BaseView):
+    route_base = "/bom"
+    default_view = "remove"
+    method_permission_name = {"remove": "edit"}
+
+    @expose("/occurrence/<int:pk>/delete", methods=["POST"])
+    @has_access
+    def remove(self, pk):
+        occurrence = db.session.get(BOMOccurrence, pk)
+        if occurrence is None:
+            abort(404)
+        parent_id = occurrence.parent_revision_id
+        form = DeleteForm()
+        if form.validate_on_submit():
+            try:
+                bom.remove_occurrence(occurrence)
+            except IntegrityError:
+                db.session.rollback()
+                _conflict_flash()
+            else:
+                db.session.commit()
+                flash("BOM line removed.", "success")
+        return redirect(url_for("BomTreeView.tree", pk=parent_id))
+
+
 __all__ = [
     "AddOccurrenceView",
     "BomCoverageView",
     "BomTreeView",
     "LinkRequirementView",
+    "RemoveOccurrenceView",
 ]

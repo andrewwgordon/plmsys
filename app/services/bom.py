@@ -2,11 +2,13 @@
 
 BOM edges are ``parent revision --find_number--> child revision`` with a
 quantity. All structure mutation goes through :func:`add_occurrence`, which
-guards self-lines, duplicate find numbers, cycles, non-positive quantities and
-non-``Part`` revisions. Traversal is cycle-safe and bulk-loads the structure so
-it never issues a query per node.
+guards self-lines, duplicate find numbers, cycles, non-positive/non-finite
+quantities and non-``Part`` revisions. Traversal is cycle-safe and fetches one
+level of children/parents at a time (batched ``IN`` queries), so the cost is
+O(depth) queries rather than O(nodes).
 """
 
+import math
 from collections import deque
 
 from sqlalchemy.orm import joinedload
@@ -32,18 +34,20 @@ def _require_part(revision, label: str) -> None:
         raise ServiceError(f"The {label} is not a Part revision.")
 
 
-def _occurrences_by_parent(session):
-    """Load the whole BOM once and index it by parent revision id."""
+def _children_of(parent_ids, session) -> dict:
+    """Return ``{parent_revision_id: [BOMOccurrence]}`` for the given parents."""
+    ids = [parent_id for parent_id in parent_ids if parent_id is not None]
+    if not ids:
+        return {}
     occurrences = (
         session.query(BOMOccurrence)
+        .filter(BOMOccurrence.parent_revision_id.in_(ids))
         .options(
-            joinedload(BOMOccurrence.parent_revision).joinedload(
-                Revision.business_object
-            ),
             joinedload(BOMOccurrence.child_revision).joinedload(
                 Revision.business_object
-            ),
+            )
         )
+        .order_by(BOMOccurrence.parent_revision_id, BOMOccurrence.find_number)
         .all()
     )
     by_parent = {}
@@ -52,23 +56,41 @@ def _occurrences_by_parent(session):
     return by_parent
 
 
+def _parents_of(child_ids, session) -> list:
+    """Return the occurrences whose child is one of ``child_ids``."""
+    ids = [child_id for child_id in child_ids if child_id is not None]
+    if not ids:
+        return []
+    return (
+        session.query(BOMOccurrence)
+        .filter(BOMOccurrence.child_revision_id.in_(ids))
+        .options(
+            joinedload(BOMOccurrence.parent_revision).joinedload(
+                Revision.business_object
+            )
+        )
+        .order_by(BOMOccurrence.parent_revision_id, BOMOccurrence.find_number)
+        .all()
+    )
+
+
 def would_create_cycle(parent, child, *, session=None) -> bool:
     """True when adding ``parent -> child`` would close a cycle."""
     session = _session(session)
     if parent.id == child.id:
         return True
-    by_parent = _occurrences_by_parent(session)
-    stack = [child.id]
     visited = set()
-    while stack:
-        current = stack.pop()
-        if current == parent.id:
+    frontier = {child.id}
+    while frontier:
+        if parent.id in frontier:
             return True
-        if current in visited:
-            continue
-        visited.add(current)
-        for occurrence in by_parent.get(current, []):
-            stack.append(occurrence.child_revision_id)
+        visited.update(frontier)
+        next_frontier = set()
+        for occurrences in _children_of(frontier, session).values():
+            for occurrence in occurrences:
+                if occurrence.child_revision_id not in visited:
+                    next_frontier.add(occurrence.child_revision_id)
+        frontier = next_frontier
     return False
 
 
@@ -89,8 +111,8 @@ def add_occurrence(
         quantity = float(quantity)
     except (TypeError, ValueError) as exc:
         raise ServiceError("Quantity must be a number.") from exc
-    if quantity <= 0:
-        raise ServiceError("Quantity must be greater than zero.")
+    if not math.isfinite(quantity) or quantity <= 0:
+        raise ServiceError("Quantity must be a finite number greater than zero.")
 
     duplicate = (
         session.query(BOMOccurrence)
@@ -125,53 +147,58 @@ def remove_occurrence(occurrence, *, session=None) -> bool:
 def explode(revision, max_depth=None, *, session=None) -> list:
     """Flatten the structure below ``revision``.
 
-    Returns ``[{"occurrence", "child_revision", "depth", "quantity"}, …]`` in
-    depth-first order; ``quantity`` is accumulated along the path. Cycle-safe
-    and depth-capped (``max_depth=None`` = full structure).
+    Returns ``[{"occurrence", "child_revision", "depth", "quantity", "cycle"},
+    …]`` in breadth-first order; ``quantity`` is accumulated along the path and
+    ``cycle`` marks a back-edge that was listed but not expanded. Cycle-safe,
+    depth-capped (``max_depth=None`` = full structure), and batched one level at
+    a time.
     """
     session = _session(session)
     if max_depth is not None and max_depth < 1:
         raise ServiceError("max_depth must be >= 1")
-    by_parent = _occurrences_by_parent(session)
 
     results = []
-    stack = [
-        (occurrence, 1, occurrence.quantity, (revision.id,))
-        for occurrence in reversed(by_parent.get(revision.id, []))
-    ]
-    while stack:
-        occurrence, depth, quantity, path = stack.pop()
-        results.append(
-            {
-                "occurrence": occurrence,
-                "child_revision": occurrence.child_revision,
-                "depth": depth,
-                "quantity": quantity,
-            }
-        )
-        if max_depth is not None and depth >= max_depth:
-            continue
-        if occurrence.child_revision_id in path:
-            continue  # cycle guard
-        new_path = path + (occurrence.child_revision_id,)
-        for child_occurrence in reversed(
-            by_parent.get(occurrence.child_revision_id, [])
-        ):
-            stack.append(
-                (
-                    child_occurrence,
-                    depth + 1,
-                    quantity * child_occurrence.quantity,
-                    new_path,
+    # frontier entries: (parent_revision_id, accumulated_quantity, path)
+    frontier = [(revision.id, 1.0, (revision.id,))]
+    depth = 0
+    while frontier:
+        depth += 1
+        if max_depth is not None and depth > max_depth:
+            break
+        children = _children_of({entry[0] for entry in frontier}, session)
+        next_frontier = []
+        for parent_id, quantity, path in frontier:
+            for occurrence in children.get(parent_id, []):
+                child_id = occurrence.child_revision_id
+                accumulated = quantity * occurrence.quantity
+                cycle = child_id in path
+                results.append(
+                    {
+                        "occurrence": occurrence,
+                        "child_revision": occurrence.child_revision,
+                        "depth": depth,
+                        "quantity": accumulated,
+                        "cycle": cycle,
+                    }
                 )
-            )
+                if not cycle:
+                    next_frontier.append(
+                        (child_id, accumulated, path + (child_id,))
+                    )
+        frontier = next_frontier
     return results
 
 
-def bom_rollup(revision, *, session=None) -> dict:
-    """Aggregate quantity per child revision across the whole structure."""
+def bom_rollup(revision, rows=None, *, session=None) -> dict:
+    """Aggregate quantity per child revision across the whole structure.
+
+    Pass ``rows`` (the result of :func:`explode`) to reuse an existing
+    traversal instead of walking the structure again.
+    """
+    if rows is None:
+        rows = explode(revision, session=session)
     totals = {}
-    for row in explode(revision, session=session):
+    for row in rows:
         child_id = row["child_revision"].id
         totals[child_id] = round(totals.get(child_id, 0.0) + row["quantity"], 6)
     return totals
@@ -181,39 +208,28 @@ def where_used(revision, transitive=False, *, session=None) -> list:
     """Return the parents that use ``revision``.
 
     Each entry is ``{"occurrence", "parent_revision", "depth"}``; with
-    ``transitive`` the walk continues up the structure.
+    ``transitive`` the walk continues up the structure (batched, distinct
+    ancestors).
     """
     session = _session(session)
-    occurrences = (
-        session.query(BOMOccurrence)
-        .options(
-            joinedload(BOMOccurrence.parent_revision).joinedload(
-                Revision.business_object
-            )
-        )
-        .all()
-    )
-    by_child = {}
-    for occurrence in occurrences:
-        by_child.setdefault(occurrence.child_revision_id, []).append(occurrence)
+    if not transitive:
+        return [
+            {
+                "occurrence": occurrence,
+                "parent_revision": occurrence.parent_revision,
+                "depth": 1,
+            }
+            for occurrence in _parents_of([revision.id], session)
+        ]
 
     results = []
-    if not transitive:
-        for occurrence in by_child.get(revision.id, []):
-            results.append(
-                {
-                    "occurrence": occurrence,
-                    "parent_revision": occurrence.parent_revision,
-                    "depth": 1,
-                }
-            )
-        return results
-
     visited = {revision.id}
-    queue = deque([(revision.id, 0)])
-    while queue:
-        current, depth = queue.popleft()
-        for occurrence in by_child.get(current, []):
+    frontier = {revision.id}
+    depth = 0
+    while frontier:
+        depth += 1
+        next_frontier = set()
+        for occurrence in _parents_of(frontier, session):
             parent = occurrence.parent_revision
             if parent.id in visited:
                 continue
@@ -222,10 +238,11 @@ def where_used(revision, transitive=False, *, session=None) -> list:
                 {
                     "occurrence": occurrence,
                     "parent_revision": parent,
-                    "depth": depth + 1,
+                    "depth": depth,
                 }
             )
-            queue.append((parent.id, depth + 1))
+            next_frontier.add(parent.id)
+        frontier = next_frontier
     return results
 
 
