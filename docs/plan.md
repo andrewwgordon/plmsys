@@ -646,20 +646,69 @@ by UI-4).
 
 ### Phase 6 — Configuration management & baselines
 
-1. `services/configuration.py`:
-   - `resolve(context)` — apply a `RevisionRule` to pick a revision per object.
-   - `create_baseline(context, name, user)` — snapshot resolved revisions into
-     `Baseline` + `BaselineMember`.
-   - `compare_baselines(a, b)` — additions/removals/revision changes.
-2. Add a **"Create Baseline"** form (`SimpleFormView`) under a configuration
-   context.
-3. Baseline detail view: members grouped by object type with revision IDs.
-4. Wire `RevisionRule` implementations:
-   - `Latest Working` → highest `sequence_no`, status ≠ Obsolete.
-   - `Latest Released` → highest `sequence_no` with a `Released` state.
+**Objective:** rule-driven configuration resolution, atomic baselines, and a
+baseline diff.
 
-**Deliverable:** reusable baselines and baseline diff.
-**UI (UI-6):** header configuration-context selector; baseline compare page.
+> **Dependency:** no configuration service exists yet, so this phase builds
+> `services/configuration.py`. It reuses the Phase 2 lifecycle
+> (`current_state_name`, `ensure_released`), the Phase 3/4/5 `BaseView` form/page
+> pattern, and the Phase 4/5 `IntegrityError` handling.
+
+1. **Model integrity first:**
+   - add `RevisionRule.rule_type` (e.g. `LATEST_WORKING` / `LATEST_RELEASED`),
+     plus a migration and seed update — resolution must dispatch on the type,
+     **not** the rule `name`;
+   - add `UniqueConstraint(configuration_context_id, name)` to `Baseline` plus a
+     migration;
+   - fix the seed so every baseline member is `Released` (today the seeded
+     baseline contains Draft/Approved revisions, contradicting both the Phase 2
+     guard and the `Latest Released` rule), or build it via the service.
+2. **`services/configuration.py`:**
+   - `resolve(context)` — apply `context.revision_rule.rule_type` and pick, per
+     object, the highest `sequence_no` revision that satisfies the rule
+     (`LATEST_WORKING`: highest non-Obsolete; `LATEST_RELEASED`: highest with a
+     `Released` state, read via the canonical lifecycle); document which
+     objects are considered (all objects with a matching revision; skip those
+     without) and eager-load so it is not N+1;
+   - `create_baseline(context, name, created_by=None)` — resolve, call
+     `lifecycle.ensure_released` for every member, and create `Baseline` +
+     `BaselineMember` **atomically** (roll back on any guard failure); reject
+     duplicate names per context; `created_by` is a plain string (the domain
+     model has no user FK) — drop the `user` argument or add the column;
+   - `compare_baselines(a, b)` — structured additions / removals / changes
+     (same `BusinessObject`, different revision), returning a documented shape;
+   - `add_baseline_member` / `remove_baseline_member` so the `ensure_released`
+     guard lives in the service, not only in the view.
+3. **Baseline UI:**
+   - a `BaseView` **Create Baseline** form at
+     `/configuration/<context_id>/baseline/new` (the context is fixed in the
+     URL — do **not** use `SimpleFormView`, whose single `/form` route cannot
+     scope the context): name input → `create_baseline`, `@has_access`,
+     `ServiceError`/`IntegrityError` → flash;
+   - a read-only `BaselineDetailView` grouping members by `object_type.name`
+     (object number, revision, release state);
+   - a `BaselineCompareView` taking two baseline ids (query args) with an
+     added/removed/changed legend;
+   - make `BaselineModelView`/`BaselineMemberModelView` read-only (or
+     Setup-only) so raw rows cannot bypass atomic creation, and register the
+     configuration views under the existing **Configuration** category.
+4. **Context persistence:** UI-6's header selector is backed by
+   `UserPreference`, which UI-3 schedules for Phases 9 & 12. Move the
+   `UserPreference` model + migration into this phase, **or** explicitly scope
+   UI-6 to a session-only selector and defer persistence. State which.
+5. **Tests** (`tests/services/`, `tests/views/`): `resolve` per rule type;
+   `create_baseline` release guard, duplicate-name rejection and atomicity;
+   `compare_baselines` additions/removals/changes; the `RevisionRule.rule_type`
+   and `Baseline` unique constraints; the create/detail/compare views; and a
+   seed invariant that all baseline members are Released. Reuse the
+   `tests/views/conftest.py` isolation fixture.
+
+**Deliverable:** rule-driven configuration resolution, reusable atomic
+baselines and a baseline diff, with non-Released members and duplicate names
+rejected.
+**UI (UI-6):** a header configuration-context selector (persisted via
+`UserPreference` or explicitly session-only); a baseline detail page and a
+compare page.
 
 ---
 
