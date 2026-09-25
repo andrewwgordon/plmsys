@@ -73,6 +73,19 @@ def test_create_baseline_atomic_snapshot(session):
         assert lifecycle.is_released(member.revision)
 
 
+def test_create_baseline_stores_description(session):
+    context = _context(session, "EV Program - Released")
+
+    baseline = configuration.create_baseline(
+        context,
+        "Described Baseline",
+        description="Captured for the audit trail.",
+        session=session,
+    )
+
+    assert baseline.description == "Captured for the audit trail."
+
+
 def test_create_baseline_rejects_duplicate_name(session):
     context = _context(session, "EV Program - Released")
     configuration.create_baseline(context, "Duplicated", session=session)
@@ -124,6 +137,25 @@ def test_add_baseline_member_rejects_draft(session):
     draft = _revision(session, "REQ-0003")  # Draft
     with pytest.raises(ServiceError):
         configuration.add_baseline_member(baseline, draft, session=session)
+
+
+def test_add_baseline_member_rejects_second_revision_of_object(session):
+    """Regression: a baseline captures one revision per object, otherwise
+    ``compare_baselines`` (keyed by object_id) silently drops a member."""
+    context = _context(session, "EV Program - Released")
+    baseline = Baseline(configuration_context=context, name="Object-unique test")
+    session.add(baseline)
+    session.flush()
+
+    req1_a = _revision(session, "REQ-0001", 0)  # Draft
+    req1_b = _revision(session, "REQ-0001", 1)  # Released
+    lifecycle.submit_for_review(req1_a, session=session)
+    lifecycle.approve(req1_a, session=session)
+    lifecycle.release(req1_a, session=session)
+
+    configuration.add_baseline_member(baseline, req1_b, session=session)
+    with pytest.raises(ServiceError):
+        configuration.add_baseline_member(baseline, req1_a, session=session)
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ from enum import StrEnum
 
 from flask_appbuilder import Model
 from flask_appbuilder.models.decorators import renders
+from flask_appbuilder.models.mixins import FileColumn
 from markupsafe import Markup, escape
 from sqlalchemy import (
     Boolean,
@@ -625,7 +626,13 @@ class Dataset(TimestampMixin, Model):
 
 
 class ManagedFile(TimestampMixin, Model):
-    """A physical file stored behind a dataset."""
+    """A physical file stored behind a dataset.
+
+    ``file`` holds the FAB-managed filename (a uuid-prefixed
+    ``secure_filename``); the bytes live under ``UPLOAD_FOLDER``, which is kept
+    **outside** the web-served static tree. Serve it only through the
+    authenticated download route. ``checksum`` is the SHA-256 of the bytes.
+    """
 
     __tablename__ = "managed_file"
 
@@ -635,8 +642,9 @@ class ManagedFile(TimestampMixin, Model):
     )
     file_name = Column(String(255), nullable=False)
     mime_type = Column(String(120))
-    storage_path = Column(Text)
+    file = Column(FileColumn)
     file_size = Column(Integer)
+    checksum = Column(String(64))
 
     dataset = relationship("Dataset", back_populates="files")
 

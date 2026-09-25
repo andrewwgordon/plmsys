@@ -14,8 +14,10 @@ with the usual back-steps (``Review -> Draft``, ``Approved -> Review``) and an
 escape hatch to ``Obsolete`` from any non-obsolete state.
 """
 
+from datetime import timedelta
+
 from ..extensions import db
-from ..models import ReleaseState, RevisionReleaseState
+from ..models import ReleaseState, RevisionReleaseState, utcnow
 from . import ServiceError
 
 DRAFT = "Draft"
@@ -88,10 +90,13 @@ def assign_release_state(
 ):
     """Assign ``state_name`` to ``revision`` and keep the status cache in sync.
 
-    Appends a :class:`RevisionReleaseState` history row (unless the revision is
-    already in that exact state) and mirrors the name onto
-    ``Revision.status`` and, when ``revision`` is its object's current
-    revision, ``BusinessObject.status``.
+    Appends a :class:`RevisionReleaseState` row for the state, or refreshes the
+    existing row's ``assigned_on`` when the state was visited before. The
+    composite ``(revision_id, release_state_id)`` primary key allows only one
+    row per state, so :meth:`Revision.release_state_name` (which selects the
+    row with the latest ``assigned_on``) only stays correct if re-entering a
+    state bumps its timestamp. Mirrors the name onto ``Revision.status`` and,
+    when ``revision`` is its object's current revision, ``BusinessObject.status``.
     """
     session = _session(session)
     state = get_state(session, state_name)
@@ -103,12 +108,35 @@ def assign_release_state(
             f"from {current!r} to {state_name!r}"
         )
 
-    already_recorded = any(
-        rel.release_state_id == state.id for rel in revision.release_states
+    recorded = next(
+        (
+            rel
+            for rel in revision.release_states
+            if rel.release_state_id == state.id
+        ),
+        None,
     )
-    if not already_recorded:
+    if recorded is None:
         session.add(RevisionReleaseState(revision=revision, release_state=state))
-        session.flush()
+    else:
+        # Re-entering a state (e.g. Review -> Draft): update the existing row so
+        # it is the latest assignment and the canonical state follows the cache.
+        # Keep ``assigned_on`` strictly greater than every other row so a same-
+        # microsecond transition cannot tie-break on release_state_id.
+        latest = max(
+            (
+                rel.assigned_on
+                for rel in revision.release_states
+                if rel is not recorded and rel.assigned_on is not None
+            ),
+            default=None,
+        )
+        now = utcnow()
+        if latest is None or now > latest:
+            recorded.assigned_on = now
+        else:
+            recorded.assigned_on = latest + timedelta(microseconds=1)
+    session.flush()
 
     revision.status = state.name
     business_object = revision.business_object
@@ -151,12 +179,12 @@ def is_released(revision) -> bool:
     return current_state_name(revision) == RELEASED
 
 
-def ensure_released(revision) -> None:
+def ensure_released(revision, *, session=None) -> None:
     """Guard for baseline membership: only released revisions qualify."""
     # ``no_autoflush`` keeps a pending BaselineMember (set by the form but not
     # yet added to the session) from being cascade-flushed while we lazy-load
     # the release states.
-    with db.session.no_autoflush:
+    with _session(session).no_autoflush:
         state = current_state_name(revision)
     if state != RELEASED:
         raise ServiceError(

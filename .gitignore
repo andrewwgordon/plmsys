@@ -61,13 +61,14 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
-instance/
-.webassets-cache
-
 # Local SQLite database (created by app factory / seed_data)
 *.db
 *.db-journal
+*.bak
+
+# Flask stuff:
+instance/
+.webassets-cache
 
 # Scrapy stuff:
 .scrapy

@@ -11,8 +11,8 @@ from flask_appbuilder.security.decorators import has_access
 from flask_wtf import FlaskForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
-from wtforms import StringField
-from wtforms.validators import DataRequired
+from wtforms import StringField, TextAreaField
+from wtforms.validators import DataRequired, Optional
 
 from ..extensions import db
 from ..models import (
@@ -54,6 +54,7 @@ def active_context(contexts=None):
 
 class BaselineForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
+    description = TextAreaField("Description", validators=[Optional()])
 
 
 class CreateBaselineView(BaseView):
@@ -72,7 +73,10 @@ class CreateBaselineView(BaseView):
         if form.validate_on_submit():
             try:
                 baseline = configuration.create_baseline(
-                    context, form.name.data, created_by=_username()
+                    context,
+                    form.name.data,
+                    created_by=_username(),
+                    description=form.description.data,
                 )
             except ServiceError as exc:
                 db.session.rollback()
@@ -115,7 +119,14 @@ class BaselineDetailView(BaseView):
             .all()
         )
         groups = {}
-        for member in members:
+        for member in sorted(
+            members,
+            key=lambda member: (
+                member.revision.business_object.object_type.name,
+                member.revision.business_object.object_number,
+                member.revision.sequence_no or 0,
+            ),
+        ):
             revision = member.revision
             type_name = revision.business_object.object_type.name
             groups.setdefault(type_name, []).append(revision)
@@ -153,20 +164,34 @@ class BaselineCompareView(BaseView):
 
 
 class SetContextView(BaseView):
+    """Session-only configuration-context selector (persistence deferred).
+
+    Available to any authenticated user: it only stores the selected context id
+    in the session, so it does not need a FAB permission. Anonymous requests are
+    rejected. The persisted ``UserPreference`` form arrives with UI-3.
+    """
+
     route_base = "/context"
     default_view = "set_context"
-    method_permission_name = {"set_context": "list"}
 
     @expose("/set", methods=["POST"])
-    @has_access
     def set_context(self):
+        user = getattr(g, "user", None)
+        if user is None or not getattr(user, "is_authenticated", False):
+            abort(401)
         context_id = request.form.get("context_id", type=int)
         if context_id:
             session["plmsys_context_id"] = context_id
         else:
             session.pop("plmsys_context_id", None)
         target = request.form.get("next") or "/"
-        if not target.startswith("/"):
+        # Only allow same-site absolute paths: reject absolute URLs and
+        # protocol-relative ones (``//evil.com``) to avoid an open redirect.
+        if (
+            not target.startswith("/")
+            or target.startswith("//")
+            or "\\" in target
+        ):
             target = "/"
         return redirect(target)
 

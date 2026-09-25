@@ -6,8 +6,12 @@ after the schema has been created.
 """
 
 from datetime import date, datetime, timedelta
+import io
 
 from sqlalchemy.orm import Session
+from werkzeug.datastructures import FileStorage
+
+from .services import datasets
 
 from .models import (
     BOMOccurrence,
@@ -16,7 +20,6 @@ from .models import (
     BusinessObject,
     ConfigurationContext,
     Dataset,
-    ManagedFile,
     ObjectType,
     OccurrenceTrace,
     PropertyDefinition,
@@ -46,6 +49,17 @@ _PROPERTY_COLUMNS = {
     PropertyDataType.FLOAT: "float_value",
     PropertyDataType.DATE: "date_value",
 }
+
+# A tiny, valid-enough PDF used as the seeded attachment so the download link
+# and metadata (size/checksum) resolve against real bytes.
+_PLACEHOLDER_PDF = (
+    b"%PDF-1.4\n"
+    b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n"
+    b"trailer<</Root 1 0 R>>\n"
+    b"%%EOF\n"
+)
 
 
 def _release_states(session: Session) -> dict[str, ReleaseState]:
@@ -516,14 +530,16 @@ def seed_data(session: Session) -> bool:
     )
     session.add(dataset)
     session.flush()
-    session.add(
-        ManagedFile(
-            dataset=dataset,
-            file_name="battery_pack_architecture.pdf",
-            mime_type="application/pdf",
-            storage_path="/static/uploads/battery_pack_architecture.pdf",
-            file_size=248_320,
-        )
+    # Store real bytes through the service so ``file``/``file_size``/``checksum``
+    # are populated consistently with runtime uploads.
+    datasets.add_file(
+        dataset,
+        FileStorage(
+            stream=io.BytesIO(_PLACEHOLDER_PDF),
+            filename="battery_pack_architecture.pdf",
+            content_type="application/pdf",
+        ),
+        session=session,
     )
 
     # -- workflow -----------------------------------------------------------

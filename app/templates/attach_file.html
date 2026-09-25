@@ -1,0 +1,43 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Attach File') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Revisions') }} / {{ revision }} / {{ _('Attach File') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Attach File') }}</h1>
+    <p class="plmsys-muted">
+        {{ revision.business_object.object_number }} &mdash;
+        {{ revision.business_object.name }} ({{ revision.revision_id }})
+    </p>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="form-horizontal" role="form">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="file">{{ _('File') }}</label>
+        <div class="col-sm-6">
+            {{ form.file(class_='form-control') }}
+            {% for error in form.file.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+            <p class="help-block">{{ _('Allowed types include PDF, Office, text/CSV, images, CAD interchange and ZIP.') }}</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="dataset_name">{{ _('Dataset') }}</label>
+        <div class="col-sm-6">
+            {{ form.dataset_name(class_='form-control', placeholder='Attachments') }}
+            <p class="help-block">{{ _('Files sharing a dataset name are grouped; leave blank for “Attachments”.') }}</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="dataset_type">{{ _('Type') }}</label>
+        <div class="col-sm-6">{{ form.dataset_type(class_='form-control', placeholder='Attachment') }}</div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <button type="submit" class="btn btn-primary">{{ _('Attach') }}</button>
+            <a class="btn btn-default" href="{{ url_for('RevisionAttachmentsView.attachments', pk=revision.id) }}">{{ _('Cancel') }}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

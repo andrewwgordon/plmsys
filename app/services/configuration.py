@@ -73,7 +73,9 @@ def resolve(context, *, session=None) -> dict:
     return resolved
 
 
-def create_baseline(context, name, created_by=None, *, session=None):
+def create_baseline(
+    context, name, created_by=None, description=None, *, session=None
+):
     """Atomically snapshot the resolved configuration into a baseline.
 
     Only Released revisions may enter a baseline; the name must be unique within
@@ -98,11 +100,12 @@ def create_baseline(context, name, created_by=None, *, session=None):
     if not resolved:
         raise ServiceError("No revisions match this configuration rule.")
     for revision in resolved.values():
-        lifecycle.ensure_released(revision)
+        lifecycle.ensure_released(revision, session=session)
 
     baseline = Baseline(
         configuration_context=context,
         name=name,
+        description=description,
         created_by=created_by,
     )
     session.add(baseline)
@@ -114,9 +117,15 @@ def create_baseline(context, name, created_by=None, *, session=None):
 
 
 def add_baseline_member(baseline, revision, *, session=None):
-    """Add a released revision to a baseline (duplicate-guarded)."""
+    """Add a released revision to a baseline (duplicate-guarded).
+
+    A baseline captures **one revision per business object**, so a second
+    revision of an object already represented is rejected: otherwise
+    :func:`compare_baselines`, which keys members by ``object_id``, would
+    silently drop one of them.
+    """
     session = _session(session)
-    lifecycle.ensure_released(revision)
+    lifecycle.ensure_released(revision, session=session)
     existing = (
         session.query(BaselineMember)
         .filter_by(baseline_id=baseline.id, revision_id=revision.id)
@@ -124,6 +133,19 @@ def add_baseline_member(baseline, revision, *, session=None):
     )
     if existing is not None:
         raise ServiceError("This revision is already in the baseline.")
+    object_conflict = (
+        session.query(BaselineMember)
+        .join(Revision, BaselineMember.revision_id == Revision.id)
+        .filter(
+            BaselineMember.baseline_id == baseline.id,
+            Revision.object_id == revision.object_id,
+        )
+        .first()
+    )
+    if object_conflict is not None:
+        raise ServiceError(
+            "This baseline already contains a revision of this object."
+        )
     member = BaselineMember(baseline=baseline, revision=revision)
     session.add(member)
     session.flush()

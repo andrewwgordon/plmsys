@@ -13,7 +13,8 @@ from app.extensions import appbuilder
 
 @pytest.fixture(scope="session")
 def app(tmp_path_factory):
-    db_path = tmp_path_factory.mktemp("plmsys") / "test.db"
+    root = tmp_path_factory.mktemp("plmsys")
+    db_path = root / "test.db"
     application = create_app(
         {
             "TESTING": True,
@@ -21,6 +22,8 @@ def app(tmp_path_factory):
             "AUTO_CREATE_SCHEMA": True,
             "AUTO_SEED": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///" + db_path.as_posix(),
+            # Keep managed uploads out of the repo during tests.
+            "UPLOAD_FOLDER": (root / "uploads").as_posix(),
         }
     )
     yield application

@@ -72,6 +72,10 @@ def test_alembic_migration_creates_schema(tmp_path):
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )
         }
+        managed_file_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(managed_file)")
+        }
     finally:
         connection.close()
 
@@ -84,6 +88,8 @@ def test_alembic_migration_creates_schema(tmp_path):
         "ab_user",
         "alembic_version",
     } <= tables
+    assert {"file", "checksum"} <= managed_file_columns
+    assert "storage_path" not in managed_file_columns
 
 
 def test_alembic_upgrade_is_idempotent(tmp_path):

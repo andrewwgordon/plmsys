@@ -172,6 +172,20 @@ class RevisionLifecycleMixin(RevisionActionMixin):
         """Open the product structure for a Part revision."""
         return redirect(url_for("BomTreeView.tree", pk=item.id))
 
+    @action(
+        "view_attachments",
+        "Attachments",
+        None,
+        "fa-paperclip",
+        single=True,
+        multiple=False,
+    )
+    def view_attachments_action(self, item):
+        """Open the attachments page for a revision."""
+        return redirect(
+            url_for("RevisionAttachmentsView.attachments", pk=item.id)
+        )
+
     def _transition(self, item, operation):
         def run(revision):
             # The lifecycle service returns the assigned ReleaseState; keep the

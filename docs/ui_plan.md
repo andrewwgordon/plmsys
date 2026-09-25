@@ -416,10 +416,16 @@ showing the active `ChangeRequest` context.
 - Impact Analysis view: for a selected revision, show dependent
   relationships, affected BOM occurrences, and verification impact.
 
-### 7.9 Documents & viewer (`DocumentModelView`, `DatasetModelView`)
+### 7.9 Documents & viewer (revision Attachments page, `DocumentModelView`)
 
-- Document object page with Attachments tab and inline viewer for supported
-  types; download links; mime/size metadata.
+- A **revision Attachments page** (Phase 7) lists datasets/files with object/
+  revision context, original name, type/size, checksum and an authenticated
+  **download** link; images and PDFs gain an inline **viewer** in a later pass.
+- The **Object-page Attachments tab** (UI-7, gated on UI-1) surfaces the same
+  content in the object context, grouped by dataset, with download and preview.
+- Managed files are **not** web-served from `/static/`: every download goes
+  through an authenticated route with `Content-Disposition: attachment`
+  (see `plan.md` Phase 7 security baseline).
 
 ### 7.10 Setup / admin (existing meta-model views)
 
@@ -502,10 +508,12 @@ Flask-AppBuilder component use the same colours and fonts.
    properties.
 
 **Deliverable:** ✅ a single Bootstrap-compliant stylesheet that fully matches
-shell and FAB colours/fonts. **Note:** custom app assets now live under
-`app/templates/static/` (uploads follow it); revert to the conventional
-`app/static/` by changing one `static_folder` argument and the paths in
-`config.py` if preferred.
+shell and FAB colours/fonts. **Note:** custom **static** assets live under
+`app/templates/static/`; managed **uploads** do not — they are stored outside
+the web-served tree and reached only via an authenticated download route (see
+`plan.md` Phase 7). Revert the static assets to the conventional `app/static/`
+by changing one `static_folder` argument and the paths in `config.py` if
+preferred.
 
 ### UI-0c — Make `plmsys.css` the FAB theme — ✅ Complete
 
@@ -640,7 +648,15 @@ alternative if needed.
 
 ### UI-7 — Attachments, verification & lifecycle polish
 
-1. Attachments tab + viewer + download (`Dataset`/`ManagedFile`).
+> **Dependency:** the Object-page tabs require UI-1. Phase 7 ships a
+> revision-scoped Attachments page first; this phase adds the tab, viewer and
+> remaining polish.
+
+1. **Attachments tab** on the Object page: datasets/files for the current
+   revision, grouped by dataset, with original name, type/size, checksum and
+   **download**; a **viewer** for safe types (images, PDF) served through an
+   authenticated, `Content-Disposition`-controlled route — never a `/static/`
+   upload URL. Previews degrade to a download link.
 2. Verification tab wiring `VerificationResult`s and pass/fail indicators.
 3. Lifecycle command bar: Create Revision, Release, Obsolete with the state
    machine from `plan.md` Phase 2.
@@ -680,6 +696,15 @@ alternative if needed.
   `base_template`/`appbuilder`).
 - **Related data as tabs**: `related_views = [...]` on `ModelView` renders
   master/detail tabs on show/edit (already used for `BusinessObject → Revision`).
+- **File uploads/attachments**: add a FAB `FileColumn` to `ManagedFile`; FAB
+  binds a `FileUploadField`/`FileManager` (uuid-prefixed `secure_filename`) and
+  stores the **filename** on the model. `BaseCRUDView.download`
+  (`/{route_base}/download/<filename>`, `@has_access`, `as_attachment=True`)
+  reads from `UPLOAD_FOLDER`, which must be **outside** the web-served static
+  tree; require `FILE_ALLOWED_EXTENSIONS` and `MAX_CONTENT_LENGTH`. FAB does
+  **not** render a download link in list/show — add one via `@renders`/a macro.
+  `ImageColumn`/thumbnails need Pillow; prefer an inline preview allowlist for
+  PDFs/images and clean up files through `services/datasets`.
 - **Object page tabs**: implement with one `BaseView` and a `tab` query
   parameter (simpler than many views), or `MultipleView` for a few panels.
 - **Commands**: FAB `@action` for list/show actions; a config-driven command bar
@@ -710,6 +735,9 @@ alternative if needed.
   colour alone), keyboard-operable tree and tabs.
 - **Performance**: paginate all lists (FAB `page_size`); lazy-load structure
   nodes; add DB indexes on FK columns used by traversal; cache roll-ups.
+- **Attachments/viewer**: download links are keyboard-focusable and labelled by
+  file name; previews degrade to a download link; never embed untrusted active
+  content; show a type icon (not colour alone) for each file.
 - **Responsive**: collapse the nav rail to icons on medium screens; stack data
   panes under the tree on small screens; horizontal scroll for wide matrices.
 
@@ -730,6 +758,8 @@ alternative if needed.
 9. Setup/meta-model views are visible only to administrators.
 10. Primary navigation uses business terms, not table names.
 11. Pages are keyboard-navigable and pass a basic accessibility audit.
+12. Files attach to a revision, list with server-derived metadata, and download
+    through an authenticated route; uploads are never web-served from `/static/`.
 
 ---
 
@@ -744,6 +774,9 @@ alternative if needed.
 | Search over `PropertyValue.string_value` is weak for typed data | Add type-aware search per `PropertyDataType`; consider a later search index |
 | Saved-search JSON schema changes over time | Version the `query_json` payload |
 | Menu/permission drift | `class_permission_name` conventions + `security-converge`; test role visibility |
+| Uploads served from the public static folder (unauthenticated, XSS/sniffing) | Store outside `static/`; authenticate downloads; `Content-Disposition: attachment`; `FILE_ALLOWED_EXTENSIONS` + `MAX_CONTENT_LENGTH` |
+| Physical files orphaned by cascade deletes | Own file deletion in `services/datasets`; test deletes and dataset cascade |
+| FAB file internals drift across versions | Pin FAB; test an upload→download round-trip |
 | Scope creep in visual polish | Sequence phases; ship shell + object page first |
 
 ---

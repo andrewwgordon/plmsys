@@ -159,6 +159,7 @@ app/
 │   ├── context.py         # Favorites, Recent, Worklist, UserPreference
 │   ├── structure.py       # Structure Manager (BOM explorer)
 │   ├── traceability.py    # Traceability matrix + Impact Analysis
+│   ├── attachments.py     # revision attachments list + viewer (Phase 7)
 │   └── components.py      # config-driven tabs, command bar, tiles, badges
 ├── services/              # domain/business logic (no HTTP concerns)
 │   ├── revisions.py
@@ -177,9 +178,11 @@ app/
 │   ├── object_detail.html # Object page with tabs
 │   ├── structure.html     # BOM tree + data panes
 │   ├── traceability.html  # Traceability matrix
+│   ├── attachments.html   # revision attachments list + viewer (Phase 7)
 │   └── static/            # app static assets (served at /static/)
-│       ├── plmsys.css     # shared palette, typography + FAB/Bootstrap overrides
-│       └── uploads/       # managed files (Phase 7)
+│       └── plmsys.css     # shared palette, typography + FAB/Bootstrap overrides
+instance/
+└── uploads/               # managed files (Phase 7) — NOT web-served
 migrations/                # Alembic
 tests/
 ```
@@ -730,17 +733,115 @@ compare page.
 
 ### Phase 7 — Datasets & file uploads
 
-1. Replace the `ManagedFile.storage_path` string with a FAB `FileColumn`, or add
-   a `file` column alongside it.
-2. Configure `UPLOAD_FOLDER`, `FILE_ALLOWED_EXTENSIONS` in `config.py`.
-3. `DatasetModelView`: file upload/download via FAB's file manager.
-4. `ManagedFile` show page: download link, size, mime type, thumbnail for images
-   (`ImageColumn` + Pillow if needed).
-5. `services/datasets.py`: attach file, checksum, delete on dataset removal.
-6. Seed a dataset with a small placeholder file under `app/static/uploads/`.
+**Objective:** attach files to revisions and serve them through an
+authenticated download, with server-derived metadata and reliable cleanup.
 
-**Deliverable:** files attachable to revisions and downloadable.
-**UI (UI-7):** Attachments tab and viewer on the Object page.
+> **Dependencies:** `app/services/datasets.py` does not exist yet, so this
+> phase builds it. It reuses the Phase 3–6 `BaseView` form/page pattern
+> (service-backed, `@has_access`, `ServiceError`/`IntegrityError` → flash,
+> `commit`/`rollback`), the Phase 4–6 convention that raw link tables are
+> read-only, and Alembic for every schema change. UI-7's Object-page tab also
+> depends on UI-1 (the Object page is not delivered yet), so Phase 7 ships a
+> **revision-scoped Attachments page** and defers the tab.
+
+**Security baseline (do this first):**
+
+- **Uploads are controlled content, not public assets.** `UPLOAD_FOLDER` (and
+  `IMG_UPLOAD_FOLDER`) must live **outside** the web-served static tree
+  (`app/templates/static/`) — use `<repo>/instance/uploads/`, overridable with
+  `PLMSYS_UPLOAD_FOLDER`. FAB's built-in `BaseCRUDView.download`
+  (`/{route_base}/download/<filename>`, `@has_access`, `as_attachment=True`)
+  or an app-level authenticated route is then the only read path. Do **not**
+  serve uploads from `/static/`.
+- **`FILE_ALLOWED_EXTENSIONS` must be set** in `config.py`. FAB's `FileManager`
+  reads it and, when unset, accepts *every* extension. Restrict to PLM document
+  types (pdf, office, csv/txt, images, CAD interchange, zip) and decide
+  explicitly whether active content such as `.svg`/`.html` is permitted.
+- **`MAX_CONTENT_LENGTH`** caps upload size (DoS guard); consider a per-dataset
+  quota before production.
+- **Filename/path safety:** store only FAB's uuid-prefixed `secure_filename`;
+  never trust a client-supplied path.
+- **Server-derived metadata:** compute `file_size`, `mime_type` and `checksum`
+  from the stored bytes, never from the request or the seed.
+- **`Content-Disposition: attachment`** on download (same-origin XSS / sniffing
+  guard); only allow inline previews for an allowlist of safe types later.
+
+1. **Model + migration (Alembic owns the schema):**
+   - add `ManagedFile.file = Column(FileColumn)` (the managed filename) and
+     `checksum = Column(String(64))` (SHA-256 hex); keep `file_name` as the
+     original display name, plus `mime_type`/`file_size`;
+   - **drop `storage_path`** — it conflates a public URL with a managed path and
+     is referenced only by the seed/view. The migration adds the columns,
+     backfills `file` from `basename(storage_path)`, then drops `storage_path`;
+   - keep the ORM cascades (`Revision.datasets`, `Dataset.files`), but physical
+     deletion is owned by the service (below): ORM cascade deletes remove rows,
+     not bytes.
+2. **`services/datasets.py`** (new):
+   - `attach_file(revision, upload, dataset_name=None, dataset_type=None,
+     created_by=None)` — create/reuse a `Dataset` for the revision and add a
+     `ManagedFile` (validate extension + size, secure name, compute size, mime
+     and SHA-256);
+   - `add_file(dataset, upload)`, `delete_file(managed_file)`,
+     `delete_dataset(dataset)` (delete every physical file, then the rows), and
+     a `checksum(path)` helper;
+   - guards: non-empty upload, allowed extension, size cap, `Dataset.revision`
+     present; handle `IntegrityError` in the form (Phase 4 pattern).
+3. **Upload UI (service-backed `BaseView`):** `AttachFileView` at
+   `/revision/<int:pk>/attach` — the revision is fixed in the URL, so do **not**
+   use `SimpleFormView` (its single `/form` route cannot scope it). A file input
+   (+ optional dataset name/type) → `services.datasets.attach_file`; guard with
+   `@has_access` and an explicit permission so Phase 12 can grant it. Link it
+   from a `RevisionModelView` action.
+4. **Revision Attachments page:** a read-only `BaseView` +
+   `templates/attachments.html` listing datasets/files grouped by dataset with
+   object/revision context, original name, mime, size, checksum and an
+   authenticated **download** link, plus a service-backed **Remove** action. This
+   is the Phase 7 deliverable; the Object-page **Attachments tab** is UI-1/UI-7.
+5. **Download + renderer:** provide a download link via `@renders`/a template
+   macro that resolves by `ManagedFile.id` and points at the authenticated route,
+   never at a static path. FAB does not render a download link for a
+   `FileColumn` in list/show, so one must be added. Reuse FAB's `download` route
+   only once `UPLOAD_FOLDER` is non-public and record-level authorisation is
+   acceptable; otherwise add an app route that checks through the service and
+   calls `send_file(..., as_attachment=True)`.
+6. **Read-only raw views:** make `DatasetModelView`/`ManagedFileModelView`
+   read-only (`base_permissions = ["can_list", "can_show"]`) and move them to
+   **Setup**, so raw rows cannot bypass the upload/cleanup guards.
+7. **Seed:** write a small placeholder file (e.g. a minimal PDF/text file) into
+   `UPLOAD_FOLDER` during seeding via `services.datasets.attach_file`, so the
+   seeded download resolves and `file_size`/`checksum` are real; keep the seeder
+   idempotent and update `EXPECTED_COUNTS` if the counts change.
+8. **Tests** (`tests/services/`, `tests/views/`):
+   - seed: dataset/file counts, `file` set, the physical file exists, size and
+     checksum match the bytes;
+   - service: `attach_file`/`add_file`/`delete_file`/`delete_dataset`, disallowed
+     extension, oversize upload, checksum, and physical-file removal (also on
+     dataset cascade);
+   - view: multipart upload, download returns the bytes with
+     `Content-Disposition: attachment`, viewer denied, missing/unknown file →
+     404 (never 500), disallowed extension flashes, no N+1 on the list;
+   - config guard: `FILE_ALLOWED_EXTENSIONS` non-empty and enforced, and
+     `UPLOAD_FOLDER` is **outside** `static/` (regression guard);
+   - migration: `flask db upgrade` adds `file`/`checksum`, drops `storage_path`
+     and is idempotent.
+
+**Delivered:** `ManagedFile.file` (`FileColumn`) + `checksum` replace
+`storage_path` (migration `8394654f0db5`, with a basename backfill); `config.py`
+moves `UPLOAD_FOLDER` to `instance/uploads/` (outside the static tree) and adds
+`FILE_ALLOWED_EXTENSIONS` + `MAX_CONTENT_LENGTH`; `app/services/datasets.py`
+validates, stores, serves and cleans up files with server-derived size/MIME/
+SHA-256; `app/ui/attachments.py` provides the service-backed `AttachFileView`,
+the read-only `RevisionAttachmentsView`, and the authenticated
+`DownloadFileView`/`RemoveFileView`; a revision **Attachments** action links in;
+`DatasetModelView`/`ManagedFileModelView` are read-only and moved to Setup; and
+the seed writes a real placeholder PDF through the service. Covered by
+`tests/services/test_datasets.py` and `tests/views/test_attachments.py`.
+
+**Deliverable:** files attach to a revision, list with real metadata, download
+through an authenticated route, and are removed with their bytes; uploads never
+live in the public static tree.
+**UI (UI-7):** the revision Attachments page ships here; the Object-page
+Attachments tab + inline viewer land with UI-1/UI-7.
 
 ---
 
@@ -867,7 +968,7 @@ logged-in test client.
 > **Progress:** M1 in progress — Phase 0 + UI-0 ✅ complete; Phase 1 services ✅
 > complete; Phase 2 revision/lifecycle ✅ complete; Phase 3 properties ✅
 > complete; Phase 4 traceability ✅ complete; Phase 5 BOM ✅ complete; Phase 6
-> configuration ✅ complete; Phase 7 pending.
+> configuration ✅ complete; Phase 7 datasets ✅ complete; Phase 8 pending.
 
 ---
 
@@ -895,8 +996,16 @@ logged-in test client.
 - **Custom pages stay thin.** `BaseView`/UI code queries through
   `app/services/`, uses FAB's `SQLAInterface` where possible, and never issues
   ad-hoc SQL.
-- **Configuration context is globally visible** and selectable; the UI reads it
-  from `UserPreference` ([`ui_plan.md`](./ui_plan.md) §8).
+- **Managed files are controlled content.** Uploads are stored outside the
+  web-served static tree (`<repo>/instance/uploads/`), reached only through an
+  authenticated download route with `Content-Disposition: attachment`, capped by
+  `MAX_CONTENT_LENGTH` and `FILE_ALLOWED_EXTENSIONS`, and freed by
+  `services/datasets` on delete. Never serve uploads from `/static/`
+  (see Phase 7).
+- **Configuration context is globally visible** and selectable. Phase 6 ships a
+  **session-only** selector; persisting it in `UserPreference` (read on every
+  page) is deferred to UI-3, when that table arrives
+  ([`ui_plan.md`](./ui_plan.md) §8).
 - **Extend, don't fork, the FAB shell.** Override only the required
   `appbuilder/baselayout.html` blocks; re-verify overrides on every FAB upgrade.
 - **Accessibility is part of done** for every UI phase (landmarks, keyboard

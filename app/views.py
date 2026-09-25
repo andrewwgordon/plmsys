@@ -7,8 +7,8 @@ Views stay thin: revision/lifecycle actions delegate to ``app/services`` via
 
 import re
 
-from flask import g
-from flask_appbuilder import ModelView
+from flask import g, redirect, url_for
+from flask_appbuilder import ModelView, action
 from flask_appbuilder.models.sqla.filters import FilterEqual
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from sqlalchemy import inspect as sa_inspect
@@ -39,6 +39,12 @@ from .models import (
     VerificationResult,
     WorkflowProcess,
     WorkflowTask,
+)
+from .ui.attachments import (
+    AttachFileView,
+    DownloadFileView,
+    RemoveFileView,
+    RevisionAttachmentsView,
 )
 from .ui.bom import (
     AddOccurrenceView,
@@ -460,11 +466,12 @@ class OccurrenceTraceModelView(ModelView):
 
 class RevisionRuleModelView(ModelView):
     datamodel = SQLAInterface(RevisionRule)
-    list_columns = ["name", "description"]
-    add_columns = ["name", "description"]
-    edit_columns = ["name", "description"]
+    list_columns = ["name", "rule_type", "description"]
+    add_columns = ["name", "rule_type", "description"]
+    edit_columns = ["name", "rule_type", "description"]
     search_columns = ["name", "description"]
     order_columns = ["name"]
+    label_columns = {"rule_type": "Rule Type"}
 
 
 class ConfigurationContextModelView(ModelView):
@@ -476,6 +483,22 @@ class ConfigurationContextModelView(ModelView):
     search_columns = ["name"]
     order_columns = ["name"]
     label_columns = {"revision_rule": "Revision Rule"}
+
+    @action(
+        "create_baseline",
+        "Create Baseline",
+        None,
+        "fa-flag-checkered",
+        single=True,
+        multiple=False,
+    )
+    def create_baseline_action(self, item):
+        """Open the context-scoped Create Baseline form."""
+        return redirect(
+            url_for(
+                "CreateBaselineView.create_baseline", context_id=item.id
+            )
+        )
 
 
 class BaselineModelView(ModelView):
@@ -514,35 +537,38 @@ class BaselineMemberModelView(ModelView):
 
 
 class ManagedFileModelView(ModelView):
+    """Read-only managed files (upload via the revision Attachments page)."""
+
     datamodel = SQLAInterface(ManagedFile)
-    list_columns = ["file_name", "dataset", "mime_type", "file_size"]
+    base_permissions = ["can_list", "can_show"]
+    list_columns = ["file_name", "dataset", "mime_type", "file_size", "checksum"]
     show_columns = [
         "file_name",
         "dataset",
         "mime_type",
-        "storage_path",
+        "file",
         "file_size",
+        "checksum",
         "created_on",
     ]
-    add_columns = ["dataset", "file_name", "mime_type", "storage_path", "file_size"]
-    edit_columns = ["dataset", "file_name", "mime_type", "storage_path", "file_size"]
     search_columns = ["file_name", "mime_type"]
     order_columns = ["file_name"]
     label_columns = {
         "file_name": "File Name",
         "mime_type": "MIME Type",
-        "storage_path": "Storage Path",
         "file_size": "Size",
+        "checksum": "Checksum",
     }
 
 
 class DatasetModelView(ModelView):
+    """Read-only datasets (upload via the revision Attachments page)."""
+
     datamodel = SQLAInterface(Dataset)
+    base_permissions = ["can_list", "can_show"]
     related_views = [ManagedFileModelView]
     list_columns = ["name", "dataset_type", "revision"]
     show_columns = ["name", "dataset_type", "revision", "created_on"]
-    add_columns = ["revision", "dataset_type", "name"]
-    edit_columns = ["revision", "dataset_type", "name"]
     search_columns = ["name", "dataset_type"]
     order_columns = ["name"]
     label_columns = {"dataset_type": "Type", "revision": "Revision"}
@@ -730,20 +756,11 @@ def register_views(appbuilder) -> None:
     appbuilder.add_view_no_menu(LinkRequirementView)
     appbuilder.add_view_no_menu(RemoveOccurrenceView)
 
-    # Documents / datasets
-    appbuilder.add_view(
-        DatasetModelView,
-        "Datasets",
-        icon="fa-folder-open",
-        category="Documents",
-        category_icon="fa-file",
-    )
-    appbuilder.add_view(
-        ManagedFileModelView,
-        "Managed Files",
-        icon="fa-file-o",
-        category="Documents",
-    )
+    # Attachments (Phase 7): reached from revision actions; raw rows in Setup.
+    appbuilder.add_view_no_menu(AttachFileView)
+    appbuilder.add_view_no_menu(RevisionAttachmentsView)
+    appbuilder.add_view_no_menu(DownloadFileView)
+    appbuilder.add_view_no_menu(RemoveFileView)
 
     # Verification
     appbuilder.add_view(
@@ -839,6 +856,12 @@ def register_views(appbuilder) -> None:
         "Baseline Members",
         icon="fa-flag-o",
         **setup,
+    )
+    appbuilder.add_view(
+        DatasetModelView, "Datasets", icon="fa-folder-open", **setup
+    )
+    appbuilder.add_view(
+        ManagedFileModelView, "Managed Files", icon="fa-file-o", **setup
     )
     appbuilder.add_view(
         RevisionReleaseStateModelView,

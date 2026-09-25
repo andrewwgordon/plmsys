@@ -3,7 +3,7 @@
 import pytest
 
 from app.models import BusinessObject, Revision
-from app.services import ServiceError, lifecycle
+from app.services import ServiceError, lifecycle, revisions
 
 
 def _object(session, number):
@@ -71,3 +71,43 @@ def test_back_transition_review_to_draft(session):
     lifecycle.assign_release_state(revision, lifecycle.DRAFT, session=session)
 
     assert revision.status == lifecycle.DRAFT
+    # The canonical state must follow the cache, not stay on the state we left.
+    assert lifecycle.current_state_name(revision) == lifecycle.DRAFT
+
+
+def test_back_transition_to_visited_state_keeps_canonical_state(session):
+    """Regression: re-entering a state that already has a RevisionReleaseState
+    row (the normal ``create_revision`` flow records Draft) must refresh that
+    row so the canonical state does not remain on the state just left.
+    """
+    requirement = _object(session, "REQ-0002")
+    revision = revisions.create_revision(requirement, session=session)
+    assert revision.release_state_name == lifecycle.DRAFT
+
+    lifecycle.submit_for_review(revision, session=session)
+    assert revision.release_state_name == lifecycle.REVIEW
+
+    lifecycle.assign_release_state(revision, lifecycle.DRAFT, session=session)
+    assert revision.status == lifecycle.DRAFT
+    assert lifecycle.current_state_name(revision) == lifecycle.DRAFT
+    # The state row is reused, not duplicated (composite PK = one per state).
+    assert {rel.release_state.name for rel in revision.release_states} == {
+        lifecycle.DRAFT,
+        lifecycle.REVIEW,
+    }
+
+
+def test_back_transition_approved_to_review_keeps_canonical_state(session):
+    """Regression: Approved -> Review must also follow the cache."""
+    requirement = _object(session, "REQ-0002")
+    revision = revisions.create_revision(requirement, session=session)
+
+    lifecycle.submit_for_review(revision, session=session)
+    lifecycle.approve(revision, session=session)
+    assert revision.release_state_name == lifecycle.APPROVED
+
+    lifecycle.assign_release_state(revision, lifecycle.REVIEW, session=session)
+    assert revision.status == lifecycle.REVIEW
+    assert lifecycle.current_state_name(revision) == lifecycle.REVIEW
+    # From the corrected Review state the forward transition is allowed again.
+    assert lifecycle.can_transition(revision, lifecycle.APPROVED)

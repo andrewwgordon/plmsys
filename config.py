@@ -104,16 +104,35 @@ LANGUAGES = {
 # ---------------------------------------------------
 # Image and file configuration
 # ---------------------------------------------------
-# The file upload folder, when using models with files
-UPLOAD_FOLDER = basedir + "/app/templates/static/uploads/"
+# Managed uploads are controlled content: they are stored OUTSIDE the
+# web-served static tree (app/templates/static/) and reached only through the
+# authenticated download route. Override with PLMSYS_UPLOAD_FOLDER.
+UPLOAD_FOLDER = os.environ.get(
+    "PLMSYS_UPLOAD_FOLDER", os.path.join(basedir, "instance", "uploads")
+)
 
-# The image upload folder, when using models with images
-IMG_UPLOAD_FOLDER = basedir + "/app/templates/static/uploads/"
+# The image upload folder, when using models with images (kept in sync with
+# UPLOAD_FOLDER; only used if an ImageColumn is introduced).
+IMG_UPLOAD_FOLDER = UPLOAD_FOLDER
 
 # The image upload url, when using models with images
 IMG_UPLOAD_URL = "/static/uploads/"
 # Setup image size default is (300, 200, True)
 # IMG_SIZE = (300, 200, True)
+
+# Allowed upload extensions. FAB's FileManager accepts *every* extension when
+# this is unset, so it must be defined. Active content (svg/html/js) is
+# deliberately excluded.
+FILE_ALLOWED_EXTENSIONS = {
+    "pdf", "txt", "csv", "md",
+    "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff",
+    "step", "stp", "iges", "igs",
+    "zip",
+}
+
+# Cap the whole request body (uploads) to protect the server from disk fill.
+MAX_CONTENT_LENGTH = 25 * 1024 * 1024
 
 # Theme configuration
 # these are located on static/appbuilder/css/themes

@@ -1,0 +1,69 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Attachments') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Revisions') }} / {{ revision }} / {{ _('Attachments') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Attachments') }}</h1>
+    <p class="plmsys-muted">
+        {{ revision.business_object.object_number }} &mdash;
+        {{ revision.business_object.name }} ({{ revision.revision_id }})
+    </p>
+</div>
+
+<p>
+    <a class="btn btn-primary" href="{{ url_for('AttachFileView.attach', pk=revision.id) }}">
+        <i class="fa fa-paperclip"></i> {{ _('Attach File') }}
+    </a>
+</p>
+
+{% for dataset in revision.datasets %}
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 class="panel-title">
+                {{ dataset.name }}
+                {% if dataset.dataset_type %}<small class="plmsys-muted">{{ dataset.dataset_type }}</small>{% endif %}
+            </h4>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-condensed table-hover">
+                <thead>
+                    <tr>
+                        <th>{{ _('File') }}</th>
+                        <th>{{ _('Type') }}</th>
+                        <th>{{ _('Size') }}</th>
+                        <th>{{ _('Checksum') }}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for managed_file in dataset.files %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('DownloadFileView.download', pk=managed_file.id) }}">
+                                    <i class="fa fa-file-o"></i> {{ managed_file.file_name }}
+                                </a>
+                            </td>
+                            <td>{{ managed_file.mime_type }}</td>
+                            <td>{{ managed_file.file_size }}</td>
+                            <td><code>{{ (managed_file.checksum or '')[:12] }}</code></td>
+                            <td class="text-right">
+                                <form method="post" action="{{ url_for('RemoveFileView.remove', pk=managed_file.id) }}"
+                                      onsubmit="return confirm('{{ _('Remove this file?') }}');">
+                                    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                                    <button type="submit" class="btn btn-danger btn-xs">
+                                        <i class="fa fa-trash"></i> {{ _('Remove') }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <p class="plmsys-muted">{{ _('No attachments.') }}</p>
+{% endfor %}
+{% endblock %}

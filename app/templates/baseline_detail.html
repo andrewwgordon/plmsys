@@ -38,7 +38,7 @@
                             </td>
                             <td>{{ revision.business_object.name }}</td>
                             <td>{{ revision.revision_id }}</td>
-                            <td><span class="label label-default">{{ revision.release_state_name }}</span></td>
+                            <td>{{ revision.release_state_badge() }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
