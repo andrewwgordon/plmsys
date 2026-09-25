@@ -11,7 +11,7 @@ EXPECTED_COUNTS = {
     "PropertyDefinition": 12,
     "PropertyValue": 21,
     "RelationshipType": 8,
-    "Relationship": 11,
+    "Relationship": 13,
     "BOMOccurrence": 2,
     "OccurrenceTrace": 1,
     "RevisionRule": 2,

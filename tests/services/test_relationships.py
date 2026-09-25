@@ -1,8 +1,9 @@
 """Relationship service: typed links and transitive trace traversal."""
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
-from app.models import BusinessObject
+from app.models import BusinessObject, Relationship
 from app.services import ServiceError, relationships
 
 
@@ -75,3 +76,40 @@ def test_trace_rejects_bad_direction(session):
     req1 = _revision(session, "REQ-0001", 1)
     with pytest.raises(ServiceError):
         relationships.trace(req1, "sideways", session=session)
+
+
+def test_neighbours_returns_typed_edges(session):
+    req1 = _revision(session, "REQ-0001", 1)
+
+    edges = relationships.neighbours(req1, "out", ["DEFINING"], session=session)
+
+    assert len(edges) == 1
+    relationship, neighbour = edges[0]
+    assert relationship.relationship_type.name == "DEFINING"
+    assert neighbour.business_object.object_number == "REQ-0002"
+
+
+def test_neighbours_incoming(session):
+    req2 = _revision(session, "REQ-0002", 0)
+
+    edges = relationships.neighbours(req2, "in", ["DEFINING"], session=session)
+
+    assert [n.business_object.object_number for _, n in edges] == ["REQ-0001"]
+
+
+def test_duplicate_relationship_violates_db_constraint(session):
+    """The unique constraint backs up the service's duplicate guard."""
+    req1 = _revision(session, "REQ-0001", 1)
+    test = _revision(session, "TEST-100")  # already VERIFIED_BY from req1
+    relationship_type = relationships.get_type(session, "VERIFIED_BY")
+
+    session.add(
+        Relationship(
+            relationship_type=relationship_type,
+            primary_revision=req1,
+            secondary_revision=test,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.flush()
+    session.rollback()

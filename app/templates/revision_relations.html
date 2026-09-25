@@ -1,0 +1,62 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Relations') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Revisions') }} / {{ revision }} / {{ _('Relations') }}{% endblock %}
+
+{% macro relation_groups(groups) %}
+    {% if groups %}
+        {% for type_name, neighbours in groups.items() %}
+            <h5>{{ type_name }}</h5>
+            <ul class="list-unstyled">
+                {% for neighbour in neighbours %}
+                    <li>
+                        <i class="fa fa-link"></i>
+                        <a href="{{ url_for('RevisionModelView.show', pk=neighbour.id) }}">
+                            {{ neighbour.business_object.object_number }} &mdash;
+                            {{ neighbour.business_object.name }} ({{ neighbour.revision_id }})
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endfor %}
+    {% else %}
+        <p class="plmsys-muted">{{ _('None.') }}</p>
+    {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Relations') }}
+        <span class="label label-default">{{ revision.release_state_name }}</span>
+    </h1>
+    <p class="plmsys-muted">
+        {{ revision.business_object.object_number }} &mdash;
+        {{ revision.business_object.name }} ({{ revision.revision_id }})
+    </p>
+    <p>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('RelationFormView.add', pk=revision.id) }}">
+            <i class="fa fa-plus"></i> {{ _('Add Relation') }}
+        </a>
+        {% if revision.business_object.object_type.name == 'Requirement' %}
+            <a class="btn btn-default btn-sm" href="{{ url_for('DeriveRequirementView.derive', pk=revision.id) }}">
+                <i class="fa fa-code-fork"></i> {{ _('Derive Requirement') }}
+            </a>
+        {% endif %}
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="panel panel-primary">
+            <div class="panel-heading"><h4 class="panel-title">{{ _('Outgoing') }}</h4></div>
+            <div class="panel-body">{{ relation_groups(outbound) }}</div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="panel panel-default">
+            <div class="panel-heading"><h4 class="panel-title">{{ _('Incoming') }}</h4></div>
+            <div class="panel-body">{{ relation_groups(inbound) }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

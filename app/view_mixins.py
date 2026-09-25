@@ -124,6 +124,42 @@ class RevisionLifecycleMixin(RevisionActionMixin):
             url_for("RevisionPropertiesView.properties", pk=item.id)
         )
 
+    @action(
+        "view_relations",
+        "Relations",
+        None,
+        "fa-link",
+        single=True,
+        multiple=False,
+    )
+    def view_relations_action(self, item):
+        """Open the inbound/outbound relations section for a revision."""
+        return redirect(url_for("RevisionRelationsView.relations", pk=item.id))
+
+    @action(
+        "add_relation",
+        "Add Relation",
+        None,
+        "fa-plus",
+        single=True,
+        multiple=False,
+    )
+    def add_relation_action(self, item):
+        """Open the add-relation form for a revision."""
+        return redirect(url_for("RelationFormView.add", pk=item.id))
+
+    @action(
+        "derive_requirement",
+        "Derive Requirement",
+        None,
+        "fa-code-fork",
+        single=True,
+        multiple=False,
+    )
+    def derive_requirement_action(self, item):
+        """Open the derive-requirement form for a revision."""
+        return redirect(url_for("DeriveRequirementView.derive", pk=item.id))
+
     def _transition(self, item, operation):
         def run(revision):
             # The lifecycle service returns the assigned ReleaseState; keep the

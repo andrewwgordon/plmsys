@@ -462,7 +462,7 @@ data are rejected; raw `PropertyValue` editing is closed.
 
 ---
 
-### Phase 4 — Traceability
+### Phase 4 — Traceability — ✅ Complete
 
 **Objective:** rich, queryable, directional trace links, visible and clickable
 in the UI.
@@ -523,6 +523,20 @@ in the UI.
    guards; matrix rendering + coverage gaps + no N+1; the relations section;
    permission denial; and the new seed links. Reuse the
    `tests/views/conftest.py` commit→flush fixture.
+
+**Delivered:** `Relationship` gained
+`UniqueConstraint(relationship_type_id, primary_revision_id,
+secondary_revision_id)` (migration `1bb38e525b37`), and
+`services.relationships` gained the typed-edge `neighbours(...)` helper (with
+`trace` refactored onto it). `app/ui/traceability.py` provides the
+service-backed `RelationFormView` (Add Relation), `DeriveRequirementView` (new
+object/revision via `revisions.create_revision` + optional property copy +
+`DEFINING` link), the inbound/outbound `RevisionRelationsView`, and the
+bulk-loaded `TraceabilityMatrixView` with coverage-gap rows. Revision actions
+(Relations / Add Relation / Derive Requirement) link into them;
+`RelationshipModelView` is read-only and moved to Setup. The seed adds
+requirement ↔ Function and requirement ↔ SoftwareComponent links. Covered by
+`tests/services/test_relationships.py` and `tests/views/test_traceability.py`.
 
 **Deliverable:** end-to-end requirement decomposition and cross-domain
 traceability visible in the UI; duplicate and self links rejected at both the
@@ -708,7 +722,7 @@ logged-in test client.
 
 > **Progress:** M1 in progress — Phase 0 + UI-0 ✅ complete; Phase 1 services ✅
 > complete; Phase 2 revision/lifecycle ✅ complete; Phase 3 properties ✅
-> complete; Phase 4 pending.
+> complete; Phase 4 traceability ✅ complete; Phase 5 pending.
 
 ---
 

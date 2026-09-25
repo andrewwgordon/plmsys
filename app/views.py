@@ -42,6 +42,12 @@ from .models import (
 )
 from .services import ServiceError, lifecycle
 from .ui.properties import PropertyMatrixView, RevisionPropertiesView
+from .ui.traceability import (
+    DeriveRequirementView,
+    RelationFormView,
+    RevisionRelationsView,
+    TraceabilityMatrixView,
+)
 from .view_mixins import CreateRevisionMixin, RevisionLifecycleMixin
 
 
@@ -356,7 +362,15 @@ class PropertyValueModelView(ModelView):
 
 
 class RelationshipModelView(ModelView):
+    """Read-only list of trace links.
+
+    Links are created through ``services.relationships`` (the relation forms);
+    an editable view here would bypass the duplicate/self guards and the new
+    unique constraint would surface as a 500.
+    """
+
     datamodel = SQLAInterface(Relationship)
+    base_permissions = ["can_list", "can_show"]
     list_columns = [
         "relationship_type",
         "primary_revision",
@@ -370,8 +384,6 @@ class RelationshipModelView(ModelView):
         "created_on",
         "modified_on",
     ]
-    add_columns = ["relationship_type", "primary_revision", "secondary_revision"]
-    edit_columns = ["relationship_type", "primary_revision", "secondary_revision"]
     search_columns = ["relationship_type", "primary_revision", "secondary_revision"]
     order_columns = ["relationship_type"]
     label_columns = {
@@ -688,17 +700,17 @@ def register_views(appbuilder) -> None:
         icon="fa-table",
         category="Requirements",
     )
-    # Reached from the "Edit Properties" revision action; no menu entry.
-    appbuilder.add_view_no_menu(RevisionPropertiesView)
-
-    # Relationships
     appbuilder.add_view(
-        RelationshipModelView,
-        "Relationships",
-        icon="fa-link",
-        category="Relationships",
-        category_icon="fa-link",
+        TraceabilityMatrixView,
+        "Traceability Matrix",
+        icon="fa-sitemap",
+        category="Requirements",
     )
+    # Reached from revision actions; no menu entries.
+    appbuilder.add_view_no_menu(RevisionPropertiesView)
+    appbuilder.add_view_no_menu(RevisionRelationsView)
+    appbuilder.add_view_no_menu(RelationFormView)
+    appbuilder.add_view_no_menu(DeriveRequirementView)
 
     # BOM
     appbuilder.add_view(
@@ -785,6 +797,9 @@ def register_views(appbuilder) -> None:
         "Relationship Types",
         icon="fa-random",
         **setup,
+    )
+    appbuilder.add_view(
+        RelationshipModelView, "Relationships", icon="fa-link", **setup
     )
     appbuilder.add_view(
         RevisionRuleModelView, "Revision Rules", icon="fa-filter", **setup

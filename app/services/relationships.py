@@ -68,7 +68,8 @@ def create_relationship(
     return relationship
 
 
-def _neighbours(revision, direction: str, type_names, session):
+def _edges(revision, direction: str, type_names, session):
+    """Yield ``(relationship, neighbour)`` typed edges for a revision."""
     query = session.query(Relationship)
     if direction == "out":
         query = query.filter(Relationship.primary_revision_id == revision.id)
@@ -92,7 +93,23 @@ def _neighbours(revision, direction: str, type_names, session):
         else:
             neighbour = relationship.primary_revision
         if neighbour.id != revision.id:
-            yield neighbour
+            yield relationship, neighbour
+
+
+def neighbours(revision, direction: str = "out", type_names=None, *, session=None):
+    """Return typed immediate neighbours as ``[(relationship, revision), …]``.
+
+    Unlike :func:`trace`, this keeps the edge (and therefore its
+    ``RelationshipType``), which traceability matrices and impact reports need.
+    """
+    if direction not in _DIRECTIONS:
+        raise ServiceError(
+            f"direction must be one of {_DIRECTIONS}, got {direction!r}"
+        )
+    session = _session(session)
+    if type_names is not None:
+        type_names = set(type_names)
+    return list(_edges(revision, direction, type_names, session))
 
 
 def trace(
@@ -123,7 +140,7 @@ def trace(
         current, depth = queue.popleft()
         if max_depth is not None and depth >= max_depth:
             continue
-        for neighbour in _neighbours(current, direction, type_names, session):
+        for _, neighbour in _edges(current, direction, type_names, session):
             if neighbour.id in visited:
                 continue
             visited.add(neighbour.id)
@@ -132,4 +149,4 @@ def trace(
     return results
 
 
-__all__ = ["create_relationship", "get_type", "trace"]
+__all__ = ["create_relationship", "get_type", "neighbours", "trace"]

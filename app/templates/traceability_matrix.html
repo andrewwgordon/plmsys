@@ -1,0 +1,54 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Traceability Matrix') }}{% endblock %}
+{% block breadcrumb %} / {{ _('Requirements') }} / {{ _('Traceability Matrix') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Traceability Matrix') }}</h1>
+    <p class="plmsys-muted">
+        {{ _('Requirements against their defining, allocated, verified and satisfied revisions.') }}
+        {{ _('Rows highlighted red have a coverage gap.') }}
+    </p>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover table-condensed">
+        <thead>
+            <tr>
+                <th>{{ _('Requirement') }}</th>
+                <th>{{ _('Revision') }}</th>
+                {% for type_name in types %}<th>{{ type_name }}</th>{% endfor %}
+                <th>{{ _('Coverage') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr class="{{ 'danger' if row.gap else '' }}">
+                    <td>{{ row.revision.business_object.object_number }}</td>
+                    <td>{{ row.revision.revision_id }}</td>
+                    {% for type_name in types %}
+                        {% set neighbours = row.cells[type_name] %}
+                        <td>
+                            {% for neighbour in neighbours %}
+                                <a href="{{ url_for('RevisionModelView.show', pk=neighbour.id) }}">
+                                    {{ neighbour.business_object.object_number }}
+                                </a>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </td>
+                    {% endfor %}
+                    <td>
+                        {% if row.gap %}
+                            <span class="label label-danger">{{ _('Gap') }}</span>
+                        {% else %}
+                            <span class="label label-success">{{ _('Covered') }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="{{ types | length + 3 }}">{{ _('No requirements.') }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -372,6 +372,14 @@ class Relationship(TimestampMixin, Model):
     """Traceability edge: ``primary`` --type--> ``secondary``."""
 
     __tablename__ = "relationship"
+    __table_args__ = (
+        UniqueConstraint(
+            "relationship_type_id",
+            "primary_revision_id",
+            "secondary_revision_id",
+            name="uq_relationship_type_primary_secondary",
+        ),
+    )
 
     id = Column(Integer, primary_key=True)
     relationship_type_id = Column(

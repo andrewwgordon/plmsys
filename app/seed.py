@@ -385,6 +385,8 @@ def seed_data(session: Session) -> bool:
     rel("IMPACTED_BY_CHANGE", req2_revs[0], change_density_revs[0])
     rel("REFERENCES", doc_arch_revs[0], arch_pack_revs[0])
     rel("COMPLYING", req2_revs[0], arch_pack_revs[0])
+    rel("ALLOCATED_TO", req2_revs[0], swc_bms_revs[0])       # requirement <-> software component
+    rel("SATISFIED_BY", req1_revs[1], func_traction_revs[0])  # requirement <-> function
 
     # -- revision lineage ---------------------------------------------------
     session.add(

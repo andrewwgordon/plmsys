@@ -1,0 +1,47 @@
+{% extends 'base_layout.html' %}
+
+{% block page_title %}{{ _('Derive Requirement') }} - {{ revision }}{% endblock %}
+{% block breadcrumb %} / {{ _('Revisions') }} / {{ revision }} / {{ _('Derive Requirement') }}{% endblock %}
+
+{% block content %}
+<div class="plmsys-hero">
+    <h1>{{ _('Derive Requirement') }}</h1>
+    <p class="plmsys-muted">
+        {{ _('A new requirement is created and linked from') }}
+        {{ revision.business_object.object_number }} ({{ _('DEFINING') }}).
+    </p>
+</div>
+
+<form method="post" class="form-horizontal" role="form">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="object_number">{{ _('Number') }}</label>
+        <div class="col-sm-6">
+            {{ form.object_number(class_='form-control') }}
+            {% for error in form.object_number.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="name">{{ _('Name') }}</label>
+        <div class="col-sm-6">
+            {{ form.name(class_='form-control') }}
+            {% for error in form.name.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3 control-label" for="description">{{ _('Description') }}</label>
+        <div class="col-sm-6">{{ form.description(class_='form-control', rows=3) }}</div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <label class="checkbox-inline">{{ form.copy_properties() }} {{ form.copy_properties.label.text }}</label>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <button type="submit" class="btn btn-primary">{{ _('Derive') }}</button>
+            <a class="btn btn-default" href="{{ url_for('RevisionRelationsView.relations', pk=revision.id) }}">{{ _('Cancel') }}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
