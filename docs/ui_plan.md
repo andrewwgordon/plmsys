@@ -507,7 +507,7 @@ shell and FAB colours/fonts. **Note:** custom app assets now live under
 `app/static/` by changing one `static_folder` argument and the paths in
 `config.py` if preferred.
 
-### UI-0c — Make `plmsys.css` the FAB theme (planned)
+### UI-0c — Make `plmsys.css` the FAB theme — ✅ Complete
 
 **Objective:** stop loading Bootswatch `flatly.css` and make
 `app/templates/static/plmsys.css` the single theme for FAB's inner views, so
@@ -516,28 +516,28 @@ exactly the shell's colours and fonts.
 
 **Root cause:** FAB's `appbuilder/init.html` loads CSS in this order:
 `bootstrap.min.css` → Font Awesome → `themes/<APP_THEME>` → datepicker/select2 →
-`ab.css`. `config.py` sets `APP_THEME = "flatly.css"`, so a full Bootswatch
-3.4.1 theme is injected. Our `base_layout.html` then loads `plmsys.css` last, so
-it wins only where it declares a rule; everything else inherits flatly.
+`ab.css`. `config.py` set `APP_THEME = "flatly.css"`, so a full Bootswatch
+3.4.1 theme was injected. `base_layout.html` then loaded `plmsys.css` last, so
+it won only where it declared a rule; everything else inherited flatly.
 
-**Approach (recommended): disable the Bootswatch theme and make `plmsys.css` a
+**Implemented approach: disable the Bootswatch theme and make `plmsys.css` a
 complete Bootstrap 3 theme layer.**
 
-1. `config.py`: set `APP_THEME = ""` (FAB's `{% if appbuilder.app_theme %}`
-   then emits no theme link). Keep `{{ super() }}` in `base_layout.html` so
-   FAB's core CSS, Font Awesome and widgets still load; `plmsys.css` stays the
-   last stylesheet. This is upgrade-safe and drops ~120 KB of flatly CSS.
-2. Promote `plmsys.css` from an "override sheet" to a documented Bootstrap 3
-   theme: mirror Bootstrap 3's Less design tokens as `--plmsys-*` custom
-   properties in `:root` (brand/state colours + `-hover`/`-border`, grays,
-   `body`/text/link colours, font family/size/line-height, heading scale,
-   radii, navbar/panel/well/table/form/code tokens). Then override every
-   component that uses those tokens (matrix below).
-3. Retheme the FAB-only helpers from `ab.css` (`.wrap`, `.fixed-footer`
-   `#f5f5f5`, `.filter`, `.action_checkboxes`, `.img-select/.img-unselect`,
-   `.cursor-hand`, `.fa-black`).
-4. Keep `plmsys.css` last in `head_css`; add `id="plmsys-theme"` to the
-   `<link>` so tests can assert order and that flatly is gone.
+1. ✅ `config.py`: `APP_THEME = ""` (FAB's `{% if appbuilder.app_theme %}` then
+   emits no theme link). `{{ super() }}` is kept in `base_layout.html` so FAB's
+   core CSS, Font Awesome and widgets still load; `plmsys.css` is the last
+   stylesheet. Upgrade-safe, and drops ~120 KB of flatly CSS.
+2. ✅ `plmsys.css` is now a documented Bootstrap 3 theme: `:root` mirrors
+   Bootstrap 3's Less design tokens as `--plmsys-*` custom properties
+   (brand/state colours + `-hover`/`-border`/soft tints, grays, body/text/link
+   colours, font family/size/line-height, heading scale, radii,
+   navbar/panel/well/table/form/code tokens), and every component consumes
+   them (matrix below).
+3. ✅ FAB-only helpers from `ab.css` are rethemed (`.wrap`, `.fixed-footer`,
+   `.filter`, `.action_checkboxes`, `.img-select/.img-unselect`, `.cursor-hand`,
+   `.fa-black`).
+4. ✅ `plmsys.css` stays last in `head_css` and the `<link>` carries
+   `id="plmsys-theme"` so tests can assert order and the absence of flatly.
 
 **Compatibility matrix — required coverage (Bootstrap 3.4.1 + FAB):**
 
@@ -571,14 +571,16 @@ Bootstrap 3.4.1 build with the PLMSys Less/Sass variables and load it as the
 full theme (Option B). This adds a Node/Less build step and duplicates
 Bootstrap unless the core is suppressed; prefer the override approach above.
 
-**Tests:** assert no rendered page (shell or FAB list/show) requests
-`flatly.css`; assert `/static/plmsys.css` is the last stylesheet; assert the
-file defines the token set and every selector in the compatibility matrix;
-add a visual smoke test of a FAB list/show page.
+**Tests (✅):** `tests/test_theme.py` now asserts `APP_THEME == ""`, that no
+rendered page (shell, FAB list **or** show) requests `flatly.css`/`themes/`, that
+`/static/plmsys.css` is the last stylesheet, that the full selector matrix is
+present, and that Bootstrap's default brand colours do not survive. 77 tests
+pass.
 
-**Acceptance criteria:** no Bootswatch theme is requested; `plmsys.css` is the
-last stylesheet and defines the full token + component matrix; FAB inner pages
-match the shell's colours/fonts; all tests pass; the shell is unchanged.
+**Acceptance criteria (✅ met):** no Bootswatch theme is requested;
+`plmsys.css` is the last stylesheet and defines the full token + component
+matrix; FAB inner pages share the shell's colours/fonts; all tests pass; the
+shell is unchanged.
 
 **Risk:** incomplete coverage lets Bootstrap defaults leak. Mitigate with the
 compatibility matrix, a visual smoke test, and fall back to the compiled-theme

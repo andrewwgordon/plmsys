@@ -1,27 +1,107 @@
 /* ============================================================================
- * PLMSys theme — shared stylesheet
+ * PLMSys theme — shared stylesheet (FAB theme)
  * ----------------------------------------------------------------------------
- * Single source of truth for the PLMSys palette and typography. It is loaded
- * AFTER Flask-AppBuilder's Bootstrap 3 base theme (see
- * app/templates/base_layout.html, `head_css`), so it can recolour FAB's core
- * components (buttons, panels, tables, forms, nav, dropdowns, pagination,
- * labels, badges, alerts, modals, …) to match the PLMSys shell.
+ * Single source of truth for the PLMSys palette and typography, and the theme
+ * for BOTH the PLMSys shell and Flask-AppBuilder's inner views.
  *
- * Loaded from: app/templates/static/plmsys.css (served at /static/plmsys.css).
+ * Loading / cascade contract
+ * --------------------------
+ * FAB's `appbuilder/init.html` loads, in order:
+ *     bootstrap.min.css -> Font Awesome -> datepicker/select2/flags -> ab.css
+ * `APP_THEME` is disabled (""), so no Bootswatch theme is loaded. This file is
+ * linked last from `base_layout.html` (`head_css` after `{{ super() }}`), so it
+ * is the final theme layer and must override Bootstrap 3's default theme
+ * tokens wherever they would otherwise show through.
  *
- * Conventions:
- *   - All colours live as custom properties in :root. Change the palette here,
- *     not in component rules.
- *   - Selectors target the Bootstrap 3 classes FAB actually emits. No
- *     framework variables are recompiled, so keep rules specific and additive.
- *   - Shell-specific classes are prefixed `.plmsys-`.
+ * Because Bootstrap 3.4.1 core is still loaded, every themeable default is
+ * re-declared here. `:root` mirrors Bootstrap's Less variables; component
+ * rules consume those tokens. Change the palette/typography in `:root` only.
+ *
+ * Compatibility (Bootstrap 3.4.1 + FAB)
+ * -------------------------------------
+ *   - Only Bootstrap 3 class names are targeted (no `.form-select`,
+ *     `.btn-close`, `--bs-*`). Do not remove `{{ super() }}` from the layout.
+ *   - Selectors stay at Bootstrap's own specificity; utilities may use
+ *     `!important` (as Bootstrap does). Loading last resolves the rest.
+ *   - Every colour variant re-declares its :hover/:focus/:active/[disabled]
+ *     states so defaults (e.g. #337ab7/#5cb85c) cannot leak.
+ *   - Fonts are set explicitly and never inherited from a Bootswatch @import.
+ *
+ * Served from: app/templates/static/plmsys.css (at /static/plmsys.css).
  * ==========================================================================*/
 
+/* ---------------------------------------------------------------------------
+ * 1. Design tokens (mirror of Bootstrap 3's themeable Less variables)
+ * ------------------------------------------------------------------------ */
+
 :root {
-    /* Palette (mirrors the former config.PLMSYS_COLORS) */
+    /* Brand + states (Bootstrap: @brand-*) */
     --plmsys-primary: #1f6feb;
     --plmsys-primary-hover: #1a5fd0;
+    --plmsys-primary-border: #1a5fd0;
     --plmsys-primary-soft: rgba(31, 111, 235, 0.15);
+    --plmsys-success: #2e7d32;
+    --plmsys-success-hover: #256428;
+    --plmsys-success-border: #256428;
+    --plmsys-success-soft: #e8f5e9;
+    --plmsys-success-fg: #1b5e20;
+    --plmsys-info: #0b7285;
+    --plmsys-info-hover: #095c6b;
+    --plmsys-info-border: #095c6b;
+    --plmsys-info-soft: #e0f2f4;
+    --plmsys-info-fg: #064e59;
+    --plmsys-warning: #b26a00;
+    --plmsys-warning-hover: #8f5500;
+    --plmsys-warning-border: #8f5500;
+    --plmsys-warning-soft: #fff4e5;
+    --plmsys-warning-fg: #7a4700;
+    --plmsys-danger: #c62828;
+    --plmsys-danger-hover: #a11f1f;
+    --plmsys-danger-border: #a11f1f;
+    --plmsys-danger-soft: #fdecea;
+    --plmsys-danger-fg: #8e1f1f;
+
+    /* Grays (Bootstrap: @gray-*) */
+    --plmsys-gray-darker: #1f2933;
+    --plmsys-gray-dark: #333a45;
+    --plmsys-gray: #55606e;
+    --plmsys-gray-light: #7c8794;
+    --plmsys-gray-lighter: #eef1f5;
+
+    /* Body / text / links */
+    --plmsys-body-bg: #f4f6f9;
+    --plmsys-surface: #ffffff;
+    --plmsys-surface-alt: #f8fafc;
+    --plmsys-text: #1f2933;
+    --plmsys-muted: #7c8794;
+    --plmsys-border: #e2e8f0;
+    --plmsys-border-strong: #cbd5e1;
+    --plmsys-link: var(--plmsys-primary);
+    --plmsys-link-hover: var(--plmsys-primary-hover);
+
+    /* Typography */
+    --plmsys-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+    --plmsys-font-family-mono: "SFMono-Regular", Consolas, "Liberation Mono",
+        Menlo, Courier, monospace;
+    --plmsys-font-size-base: 14px;
+    --plmsys-font-size-large: 18px;
+    --plmsys-font-size-small: 12px;
+    --plmsys-line-height-base: 1.42857143;
+    --plmsys-headings-font-weight: 600;
+    --plmsys-font-size-h1: 36px;
+    --plmsys-font-size-h2: 30px;
+    --plmsys-font-size-h3: 24px;
+    --plmsys-font-size-h4: 18px;
+    --plmsys-font-size-h5: 14px;
+    --plmsys-font-size-h6: 12px;
+
+    /* Radii (Bootstrap: @border-radius-*) */
+    --plmsys-radius-base: 4px;
+    --plmsys-radius-large: 6px;
+    --plmsys-radius-small: 3px;
+
+    /* Navbar / chrome (Bootstrap: @navbar-*) */
     --plmsys-nav-bg: #2a3542;
     --plmsys-nav-bg-dark: #22303f;
     --plmsys-nav-hover: #2f4054;
@@ -31,33 +111,21 @@
     --plmsys-header-search-bg: #3b4859;
     --plmsys-header-search-text: #eef3f8;
     --plmsys-header-search-muted: #9aa7b4;
-    --plmsys-body-bg: #f4f6f9;
-    --plmsys-surface: #ffffff;
-    --plmsys-surface-alt: #f8fafc;
-    --plmsys-text: #1f2933;
-    --plmsys-muted: #7c8794;
-    --plmsys-border: #e2e8f0;
-    --plmsys-success: #2e7d32;
-    --plmsys-info: #0b7285;
-    --plmsys-warning: #b26a00;
-    --plmsys-danger: #c62828;
 
-    /* Typography shared by the shell and every FAB component */
-    --plmsys-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        "Helvetica Neue", Arial, sans-serif;
-    --plmsys-font-family-mono: "SFMono-Regular", Consolas, "Liberation Mono",
-        Menlo, Courier, monospace;
-    --plmsys-font-size-base: 14px;
-    --plmsys-line-height-base: 1.42857143;
+    /* Code (Bootstrap: @code-*, @pre-*, @kbd-*) */
+    --plmsys-code-color: #b3226a;
+    --plmsys-code-bg: #fbeef4;
+    --plmsys-pre-bg: var(--plmsys-surface-alt);
+    --plmsys-pre-border: var(--plmsys-border);
+    --plmsys-kbd-bg: var(--plmsys-gray-darker);
 
     /* Shell metrics */
     --plmsys-nav-width: 240px;
     --plmsys-header-height: 52px;
-    --plmsys-radius: 4px;
 }
 
 /* ---------------------------------------------------------------------------
- * Base & typography
+ * 2. Base & typography
  * ------------------------------------------------------------------------ */
 
 html {
@@ -74,168 +142,262 @@ body {
 
 h1, h2, h3, h4, h5, h6,
 .h1, .h2, .h3, .h4, .h5, .h6 {
-    color: var(--plmsys-text);
+    color: inherit;
     font-family: var(--plmsys-font-family);
-    font-weight: 600;
+    font-weight: var(--plmsys-headings-font-weight);
+}
+
+h1, .h1 { font-size: var(--plmsys-font-size-h1); }
+h2, .h2 { font-size: var(--plmsys-font-size-h2); }
+h3, .h3 { font-size: var(--plmsys-font-size-h3); }
+h4, .h4 { font-size: var(--plmsys-font-size-h4); }
+h5, .h5 { font-size: var(--plmsys-font-size-h5); }
+h6, .h6 { font-size: var(--plmsys-font-size-h6); }
+
+h1 small, h2 small, h3 small, h4 small, h5 small, h6 small,
+.h1 small, .h2 small, .h3 small, .h4 small, .h5 small, .h6 small {
+    color: var(--plmsys-muted);
+}
+
+button, input, optgroup, select, textarea {
+    font-family: var(--plmsys-font-family);
 }
 
 code, kbd, pre, samp {
     font-family: var(--plmsys-font-family-mono);
 }
 
-small, .small, .help-block {
+code {
+    color: var(--plmsys-code-color);
+    background-color: var(--plmsys-code-bg);
+    border-radius: var(--plmsys-radius-small);
+}
+
+kbd {
+    color: #fff;
+    background-color: var(--plmsys-kbd-bg);
+    border-radius: var(--plmsys-radius-small);
+}
+
+pre {
+    color: var(--plmsys-text);
+    background-color: var(--plmsys-pre-bg);
+    border-color: var(--plmsys-pre-border);
+    border-radius: var(--plmsys-radius-base);
+}
+
+small, .small, .help-block, .help-inline {
     color: var(--plmsys-muted);
 }
 
 a {
-    color: var(--plmsys-primary);
+    color: var(--plmsys-link);
 }
 
 a:hover, a:focus {
-    color: var(--plmsys-primary-hover);
+    color: var(--plmsys-link-hover);
 }
 
 hr {
     border-top-color: var(--plmsys-border);
 }
 
-/* Selection colour, to match the shell. */
 ::selection {
     background: var(--plmsys-primary-soft);
     color: var(--plmsys-text);
 }
 
+:focus-visible {
+    outline: 2px solid var(--plmsys-primary);
+    outline-offset: 1px;
+}
+
 /* ---------------------------------------------------------------------------
- * Buttons (Bootstrap 3 variants)
+ * 3. Buttons (Bootstrap: .btn + variants + all states)
  * ------------------------------------------------------------------------ */
 
 .btn {
     font-family: var(--plmsys-font-family);
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-base);
+}
+
+.btn:focus, .btn:active:focus, .btn.active:focus, .btn.focus {
+    outline: 2px solid var(--plmsys-primary-soft);
+    outline-offset: 1px;
+}
+
+.btn-default {
+    color: var(--plmsys-text);
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border-strong);
+}
+
+.btn-default:hover, .btn-default:focus, .btn-default.focus,
+.btn-default:active, .btn-default.active,
+.open > .dropdown-toggle.btn-default,
+.open > .dropdown-toggle.btn-default:hover,
+.open > .dropdown-toggle.btn-default:focus {
+    color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border-strong);
+}
+
+.btn-default:active, .btn-default.active,
+.open > .dropdown-toggle.btn-default {
+    background-image: none;
+}
+
+.btn-default.disabled, .btn-default[disabled],
+fieldset[disabled] .btn-default,
+.btn-default.disabled:hover, .btn-default[disabled]:hover,
+fieldset[disabled] .btn-default:hover {
+    color: var(--plmsys-muted);
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
 }
 
 .btn-primary {
+    color: #fff;
     background-color: var(--plmsys-primary);
-    border-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary-border);
 }
 
-.btn-primary:hover, .btn-primary:focus, .btn-primary:active,
-.btn-primary.active, .btn-primary:active:focus,
+.btn-primary:hover, .btn-primary:focus, .btn-primary.focus,
+.btn-primary:active, .btn-primary.active,
 .open > .dropdown-toggle.btn-primary,
 .open > .dropdown-toggle.btn-primary:hover,
 .open > .dropdown-toggle.btn-primary:focus {
+    color: #fff;
     background-color: var(--plmsys-primary-hover);
-    border-color: var(--plmsys-primary-hover);
+    border-color: var(--plmsys-primary-border);
 }
 
 .btn-primary.disabled, .btn-primary[disabled],
 fieldset[disabled] .btn-primary,
 .btn-primary.disabled:hover, .btn-primary[disabled]:hover,
 fieldset[disabled] .btn-primary:hover {
+    color: #fff;
     background-color: var(--plmsys-primary);
-    border-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary-border);
+    opacity: 0.65;
+}
+
+.btn-success {
+    color: #fff;
+    background-color: var(--plmsys-success);
+    border-color: var(--plmsys-success-border);
+}
+.btn-success:hover, .btn-success:focus, .btn-success.focus,
+.btn-success:active, .btn-success.active,
+.open > .dropdown-toggle.btn-success,
+.open > .dropdown-toggle.btn-success:hover,
+.open > .dropdown-toggle.btn-success:focus {
+    color: #fff;
+    background-color: var(--plmsys-success-hover);
+    border-color: var(--plmsys-success-border);
+}
+.btn-success.disabled, .btn-success[disabled],
+fieldset[disabled] .btn-success {
+    background-color: var(--plmsys-success);
+    border-color: var(--plmsys-success-border);
+    opacity: 0.65;
+}
+
+.btn-info {
+    color: #fff;
+    background-color: var(--plmsys-info);
+    border-color: var(--plmsys-info-border);
+}
+.btn-info:hover, .btn-info:focus, .btn-info.focus,
+.btn-info:active, .btn-info.active,
+.open > .dropdown-toggle.btn-info,
+.open > .dropdown-toggle.btn-info:hover,
+.open > .dropdown-toggle.btn-info:focus {
+    color: #fff;
+    background-color: var(--plmsys-info-hover);
+    border-color: var(--plmsys-info-border);
+}
+.btn-info.disabled, .btn-info[disabled],
+fieldset[disabled] .btn-info {
+    background-color: var(--plmsys-info);
+    border-color: var(--plmsys-info-border);
+    opacity: 0.65;
+}
+
+.btn-warning {
+    color: #fff;
+    background-color: var(--plmsys-warning);
+    border-color: var(--plmsys-warning-border);
+}
+.btn-warning:hover, .btn-warning:focus, .btn-warning.focus,
+.btn-warning:active, .btn-warning.active,
+.open > .dropdown-toggle.btn-warning,
+.open > .dropdown-toggle.btn-warning:hover,
+.open > .dropdown-toggle.btn-warning:focus {
+    color: #fff;
+    background-color: var(--plmsys-warning-hover);
+    border-color: var(--plmsys-warning-border);
+}
+.btn-warning.disabled, .btn-warning[disabled],
+fieldset[disabled] .btn-warning {
+    background-color: var(--plmsys-warning);
+    border-color: var(--plmsys-warning-border);
+    opacity: 0.65;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: var(--plmsys-danger);
+    border-color: var(--plmsys-danger-border);
+}
+.btn-danger:hover, .btn-danger:focus, .btn-danger.focus,
+.btn-danger:active, .btn-danger.active,
+.open > .dropdown-toggle.btn-danger,
+.open > .dropdown-toggle.btn-danger:hover,
+.open > .dropdown-toggle.btn-danger:focus {
+    color: #fff;
+    background-color: var(--plmsys-danger-hover);
+    border-color: var(--plmsys-danger-border);
+}
+.btn-danger.disabled, .btn-danger[disabled],
+fieldset[disabled] .btn-danger {
+    background-color: var(--plmsys-danger);
+    border-color: var(--plmsys-danger-border);
     opacity: 0.65;
 }
 
 .btn-link {
-    color: var(--plmsys-primary);
+    color: var(--plmsys-link);
+    border-radius: 0;
 }
-
 .btn-link:hover, .btn-link:focus {
-    color: var(--plmsys-primary-hover);
+    color: var(--plmsys-link-hover);
+    text-decoration: underline;
 }
-
-.btn-default {
-    color: var(--plmsys-text);
-    border-color: var(--plmsys-border);
+.btn-link[disabled]:hover, fieldset[disabled] .btn-link:hover {
+    color: var(--plmsys-muted);
 }
-
-.btn-default:hover, .btn-default:focus, .btn-default:active,
-.btn-default.active, .open > .dropdown-toggle.btn-default {
-    color: var(--plmsys-primary);
-    background-color: var(--plmsys-surface-alt);
-    border-color: var(--plmsys-border);
-}
-
-.btn-success { background-color: var(--plmsys-success); border-color: var(--plmsys-success); }
-.btn-info { background-color: var(--plmsys-info); border-color: var(--plmsys-info); }
-.btn-warning { background-color: var(--plmsys-warning); border-color: var(--plmsys-warning); }
-.btn-danger { background-color: var(--plmsys-danger); border-color: var(--plmsys-danger); }
 
 .btn-primary .badge {
     color: var(--plmsys-primary);
-    background-color: var(--plmsys-surface);
+    background-color: #fff;
 }
-
-/* ---------------------------------------------------------------------------
- * Panels
- * ------------------------------------------------------------------------ */
-
-.panel {
-    background-color: var(--plmsys-surface);
-    border-color: var(--plmsys-border);
-    border-radius: var(--plmsys-radius);
-    box-shadow: none;
-}
-
-.panel-default > .panel-heading {
-    background-color: var(--plmsys-surface-alt);
-    border-color: var(--plmsys-border);
+.btn-default .badge {
     color: var(--plmsys-text);
-}
-
-.panel-heading {
-    border-radius: calc(var(--plmsys-radius) - 1px);
-}
-
-.panel-title {
-    font-weight: 600;
-}
-
-.panel-title > a {
-    color: inherit;
-}
-
-.panel-footer {
     background-color: var(--plmsys-surface-alt);
-    border-top-color: var(--plmsys-border);
 }
 
-.panel-primary { border-color: var(--plmsys-primary); }
-.panel-primary > .panel-heading {
-    background-color: var(--plmsys-primary);
-    border-color: var(--plmsys-primary);
-    color: #fff;
-}
-.panel-success { border-color: var(--plmsys-success); }
-.panel-success > .panel-heading {
-    background-color: var(--plmsys-success); border-color: var(--plmsys-success); color: #fff;
-}
-.panel-info { border-color: var(--plmsys-info); }
-.panel-info > .panel-heading {
-    background-color: var(--plmsys-info); border-color: var(--plmsys-info); color: #fff;
-}
-.panel-warning { border-color: var(--plmsys-warning); }
-.panel-warning > .panel-heading {
-    background-color: var(--plmsys-warning); border-color: var(--plmsys-warning); color: #fff;
-}
-.panel-danger { border-color: var(--plmsys-danger); }
-.panel-danger > .panel-heading {
-    background-color: var(--plmsys-danger); border-color: var(--plmsys-danger); color: #fff;
+.btn-group.open .dropdown-toggle {
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
 }
 
 /* ---------------------------------------------------------------------------
- * Tables
+ * 4. Tables
  * ------------------------------------------------------------------------ */
 
 .table {
     color: var(--plmsys-text);
     font-family: var(--plmsys-font-family);
-}
-
-.table > thead > tr > th {
-    border-bottom-color: var(--plmsys-border);
-    font-weight: 600;
 }
 
 .table > thead > tr > th,
@@ -245,6 +407,11 @@ fieldset[disabled] .btn-primary:hover {
 .table > tfoot > tr > th,
 .table > tfoot > tr > td {
     border-top-color: var(--plmsys-border);
+}
+
+.table > thead > tr > th {
+    border-bottom-color: var(--plmsys-border);
+    font-weight: 600;
 }
 
 .table > tbody > tr > td,
@@ -270,20 +437,64 @@ fieldset[disabled] .btn-primary:hover {
     border-color: var(--plmsys-border);
 }
 
+.table > thead > tr > td.active,
+.table > tbody > tr > td.active,
+.table > tfoot > tr > td.active,
+.table > thead > tr > th.active,
+.table > tbody > tr > th.active,
+.table > tfoot > tr > th.active,
+.table > thead > tr.active > td,
 .table > tbody > tr.active > td,
-.table > tbody > tr.active > th {
+.table > tfoot > tr.active > td,
+.table > thead > tr.active > th,
+.table > tbody > tr.active > th,
+.table > tfoot > tr.active > th {
     background-color: var(--plmsys-primary-soft);
 }
 
+.table-hover > tbody > tr > td.active:hover,
+.table-hover > tbody > tr > th.active:hover,
+.table-hover > tbody > tr.active:hover > td,
+.table-hover > tbody > tr:hover > .active,
+.table-hover > tbody > tr.active:hover > th {
+    background-color: rgba(31, 111, 235, 0.22);
+}
+
+.table > tbody > tr.success > td,
+.table > tbody > tr.success > th,
+.table > tbody > tr > td.success,
+.table > tbody > tr > th.success {
+    background-color: var(--plmsys-success-soft);
+}
+.table > tbody > tr.info > td,
+.table > tbody > tr.info > th,
+.table > tbody > tr > td.info,
+.table > tbody > tr > th.info {
+    background-color: var(--plmsys-info-soft);
+}
+.table > tbody > tr.warning > td,
+.table > tbody > tr.warning > th,
+.table > tbody > tr > td.warning,
+.table > tbody > tr > th.warning {
+    background-color: var(--plmsys-warning-soft);
+}
+.table > tbody > tr.danger > td,
+.table > tbody > tr.danger > th,
+.table > tbody > tr > td.danger,
+.table > tbody > tr > th.danger {
+    background-color: var(--plmsys-danger-soft);
+}
+
 /* ---------------------------------------------------------------------------
- * Forms, inputs and the FAB widgets built on them (select2, datepicker)
+ * 5. Forms, inputs, FAB widgets (select2, datepicker)
  * ------------------------------------------------------------------------ */
 
 .form-control {
     color: var(--plmsys-text);
-    border-color: var(--plmsys-border);
-    border-radius: var(--plmsys-radius);
-    box-shadow: none;
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border-strong);
+    border-radius: var(--plmsys-radius-base);
+    box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.03);
     font-family: var(--plmsys-font-family);
 }
 
@@ -298,117 +509,347 @@ fieldset[disabled] .form-control {
     color: var(--plmsys-muted);
 }
 
-.control-label, .checkbox label, .radio label {
+.form-control::-webkit-input-placeholder { color: var(--plmsys-muted); }
+.form-control::-moz-placeholder { color: var(--plmsys-muted); }
+.form-control:-ms-input-placeholder { color: var(--plmsys-muted); }
+.form-control::placeholder { color: var(--plmsys-muted); }
+
+.control-label, .checkbox label, .radio label, .checkbox-inline,
+.radio-inline {
     color: var(--plmsys-text);
 }
 
 .input-group-addon {
-    background-color: var(--plmsys-surface-alt);
-    border-color: var(--plmsys-border);
     color: var(--plmsys-muted);
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border-strong);
 }
 
-.has-success .form-control { border-color: var(--plmsys-success); }
-.has-success .help-block,
-.has-success .control-label,
-.has-success .checkbox,
-.has-success .radio { color: var(--plmsys-success); }
-.has-warning .form-control { border-color: var(--plmsys-warning); }
-.has-warning .help-block,
-.has-warning .control-label { color: var(--plmsys-warning); }
-.has-error .form-control { border-color: var(--plmsys-danger); }
-.has-error .help-block,
-.has-error .control-label { color: var(--plmsys-danger); }
+.has-success .form-control {
+    border-color: var(--plmsys-success);
+    box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.03);
+}
+.has-success .form-control:focus {
+    border-color: var(--plmsys-success);
+    box-shadow: 0 0 0 2px var(--plmsys-success-soft);
+}
+.has-success .help-block, .has-success .control-label,
+.has-success .checkbox, .has-success .radio,
+.has-success .checkbox-inline, .has-success .radio-inline {
+    color: var(--plmsys-success-fg);
+}
 
-/* select2 (used by FAB for relation pickers) */
+.has-warning .form-control {
+    border-color: var(--plmsys-warning);
+    box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.03);
+}
+.has-warning .form-control:focus {
+    border-color: var(--plmsys-warning);
+    box-shadow: 0 0 0 2px var(--plmsys-warning-soft);
+}
+.has-warning .help-block, .has-warning .control-label,
+.has-warning .checkbox, .has-warning .radio,
+.has-warning .checkbox-inline, .has-warning .radio-inline {
+    color: var(--plmsys-warning-fg);
+}
+
+.has-error .form-control {
+    border-color: var(--plmsys-danger);
+    box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.03);
+}
+.has-error .form-control:focus {
+    border-color: var(--plmsys-danger);
+    box-shadow: 0 0 0 2px var(--plmsys-danger-soft);
+}
+.has-error .help-block, .has-error .control-label,
+.has-error .checkbox, .has-error .radio,
+.has-error .checkbox-inline, .has-error .radio-inline {
+    color: var(--plmsys-danger-fg);
+}
+
+.legend, legend {
+    color: var(--plmsys-text);
+    border-bottom-color: var(--plmsys-border);
+}
+
+/* select2 (FAB relation pickers) */
 .select2-container--default .select2-selection--single,
 .select2-container--default .select2-selection--multiple {
     background-color: var(--plmsys-surface);
-    border-color: var(--plmsys-border);
-    border-radius: var(--plmsys-radius);
+    border-color: var(--plmsys-border-strong);
+    border-radius: var(--plmsys-radius-base);
 }
-
+.select2-container--default .select2-selection--single .select2-selection__rendered,
+.select2-container--default .select2-selection--multiple .select2-selection__rendered {
+    color: var(--plmsys-text);
+}
 .select2-container--default.select2-container--focus .select2-selection--multiple,
-.select2-container--default.select2-container--open .select2-selection--single {
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default.select2-container--open .select2-selection--multiple {
     border-color: var(--plmsys-primary);
     box-shadow: 0 0 0 2px var(--plmsys-primary-soft);
 }
-
 .select2-container--default .select2-results__option--highlighted[aria-selected] {
     background-color: var(--plmsys-primary);
+    color: #fff;
+}
+.select2-container--default .select2-results__option[aria-selected="true"] {
+    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-text);
+}
+.select2-dropdown {
+    border-color: var(--plmsys-border-strong);
+    border-radius: var(--plmsys-radius-base);
+    font-family: var(--plmsys-font-family);
+}
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    border-color: var(--plmsys-border-strong);
 }
 
-.select2-dropdown {
-    border-color: var(--plmsys-border);
-    font-family: var(--plmsys-font-family);
+/* datepicker (FAB date fields) */
+.datepicker table tr td.active,
+.datepicker table tr td.active:hover,
+.datepicker table tr td.active:focus {
+    background-color: var(--plmsys-primary) !important;
+    background-image: none;
+}
+.datepicker table tr td.today,
+.datepicker table tr td.today:hover {
+    background-color: var(--plmsys-primary-soft);
+    border-color: var(--plmsys-primary-soft);
+}
+.datepicker table tr td.day:hover,
+.datepicker table tr td.focused {
+    background-color: var(--plmsys-surface-alt);
 }
 
 /* ---------------------------------------------------------------------------
- * Navigation: navbar, navs/tabs/pills
+ * 6. Panels
  * ------------------------------------------------------------------------ */
+
+.panel {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius-base);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.panel-default {
+    border-color: var(--plmsys-border);
+}
+.panel-default > .panel-heading {
+    color: var(--plmsys-text);
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border);
+}
+.panel-default > .panel-heading + .panel-collapse > .panel-body {
+    border-top-color: var(--plmsys-border);
+}
+.panel-default > .panel-footer + .panel-collapse > .panel-body {
+    border-bottom-color: var(--plmsys-border);
+}
+
+.panel-heading {
+    border-radius: calc(var(--plmsys-radius-base) - 1px)
+        calc(var(--plmsys-radius-base) - 1px) 0 0;
+    font-family: var(--plmsys-font-family);
+}
+
+.panel-title {
+    font-weight: 600;
+}
+.panel-title > a {
+    color: inherit;
+}
+
+.panel-footer {
+    background-color: var(--plmsys-surface-alt);
+    border-top-color: var(--plmsys-border);
+}
+
+.panel-primary { border-color: var(--plmsys-primary); }
+.panel-primary > .panel-heading {
+    color: #fff;
+    background-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary);
+}
+.panel-primary > .panel-heading + .panel-collapse > .panel-body {
+    border-top-color: var(--plmsys-primary);
+}
+
+.panel-success { border-color: var(--plmsys-success); }
+.panel-success > .panel-heading {
+    color: #fff;
+    background-color: var(--plmsys-success);
+    border-color: var(--plmsys-success);
+}
+.panel-success > .panel-heading + .panel-collapse > .panel-body {
+    border-top-color: var(--plmsys-success);
+}
+
+.panel-info { border-color: var(--plmsys-info); }
+.panel-info > .panel-heading {
+    color: #fff;
+    background-color: var(--plmsys-info);
+    border-color: var(--plmsys-info);
+}
+.panel-info > .panel-heading + .panel-collapse > .panel-body {
+    border-top-color: var(--plmsys-info);
+}
+
+.panel-warning { border-color: var(--plmsys-warning); }
+.panel-warning > .panel-heading {
+    color: #fff;
+    background-color: var(--plmsys-warning);
+    border-color: var(--plmsys-warning);
+}
+.panel-warning > .panel-heading + .panel-collapse > .panel-body {
+    border-top-color: var(--plmsys-warning);
+}
+
+.panel-danger { border-color: var(--plmsys-danger); }
+.panel-danger > .panel-heading {
+    color: #fff;
+    background-color: var(--plmsys-danger);
+    border-color: var(--plmsys-danger);
+}
+.panel-danger > .panel-heading + .panel-collapse > .panel-body {
+    border-top-color: var(--plmsys-danger);
+}
+
+/* ---------------------------------------------------------------------------
+ * 7. Navigation: navbar, navs / tabs / pills
+ * ------------------------------------------------------------------------ */
+
+.navbar {
+    font-family: var(--plmsys-font-family);
+    border-radius: 0;
+}
 
 .navbar-default {
     background-color: var(--plmsys-nav-bg);
     border-color: var(--plmsys-nav-bg-dark);
-    font-family: var(--plmsys-font-family);
 }
-
 .navbar-default .navbar-brand,
+.navbar-default .navbar-text,
 .navbar-default .navbar-nav > li > a {
     color: var(--plmsys-nav-text);
 }
-
 .navbar-default .navbar-nav > li > a:hover,
 .navbar-default .navbar-nav > li > a:focus {
     color: var(--plmsys-nav-text-strong);
     background-color: var(--plmsys-nav-hover);
 }
-
 .navbar-default .navbar-nav > .active > a,
 .navbar-default .navbar-nav > .active > a:hover,
-.navbar-default .navbar-nav > .active > a:focus,
+.navbar-default .navbar-nav > .active > a:focus {
+    color: var(--plmsys-nav-text-strong);
+    background-color: var(--plmsys-nav-bg-dark);
+}
 .navbar-default .navbar-nav > .open > a,
 .navbar-default .navbar-nav > .open > a:hover,
 .navbar-default .navbar-nav > .open > a:focus {
-    background-color: var(--plmsys-nav-bg-dark);
     color: var(--plmsys-nav-text-strong);
+    background-color: var(--plmsys-nav-bg-dark);
 }
-
+.navbar-default .navbar-nav > .disabled > a,
+.navbar-default .navbar-nav > .disabled > a:hover {
+    color: var(--plmsys-nav-heading);
+    background-color: transparent;
+}
 .navbar-default .navbar-toggle {
     border-color: var(--plmsys-nav-hover);
 }
-
+.navbar-default .navbar-toggle:hover,
+.navbar-default .navbar-toggle:focus {
+    background-color: var(--plmsys-nav-hover);
+}
 .navbar-default .navbar-toggle .icon-bar {
     background-color: var(--plmsys-nav-text);
+}
+.navbar-default .navbar-collapse,
+.navbar-default .navbar-form {
+    border-color: var(--plmsys-nav-bg-dark);
+}
+.navbar-default .navbar-link {
+    color: var(--plmsys-nav-text);
+}
+.navbar-default .navbar-link:hover {
+    color: var(--plmsys-nav-text-strong);
+}
+
+.navbar-inverse {
+    background-color: var(--plmsys-nav-bg-dark);
+    border-color: var(--plmsys-nav-bg);
+}
+.navbar-inverse .navbar-brand,
+.navbar-inverse .navbar-text,
+.navbar-inverse .navbar-nav > li > a {
+    color: var(--plmsys-nav-text);
+}
+.navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    color: var(--plmsys-nav-text-strong);
+    background-color: var(--plmsys-nav-hover);
+}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus,
+.navbar-inverse .navbar-nav > .open > a,
+.navbar-inverse .navbar-nav > .open > a:hover,
+.navbar-inverse .navbar-nav > .open > a:focus {
+    color: var(--plmsys-nav-text-strong);
+    background-color: var(--plmsys-nav-bg);
+}
+.navbar-inverse .navbar-toggle {
+    border-color: var(--plmsys-nav-hover);
+}
+.navbar-inverse .navbar-toggle .icon-bar {
+    background-color: var(--plmsys-nav-text);
+}
+.navbar-inverse .navbar-collapse,
+.navbar-inverse .navbar-form {
+    border-color: var(--plmsys-nav-bg);
+}
+.navbar-inverse .navbar-link {
+    color: var(--plmsys-nav-text);
 }
 
 .nav > li > a {
     color: var(--plmsys-text);
 }
-
 .nav > li > a:hover, .nav > li > a:focus {
     background-color: var(--plmsys-surface-alt);
     color: var(--plmsys-primary);
+}
+.nav > li.disabled > a,
+.nav > li.disabled > a:hover,
+.nav > li.disabled > a:focus {
+    color: var(--plmsys-muted);
+}
+
+.nav .open > a, .nav .open > a:hover, .nav .open > a:focus {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border);
 }
 
 .nav-tabs {
     border-bottom-color: var(--plmsys-border);
 }
-
 .nav-tabs > li > a {
-    border-radius: var(--plmsys-radius) var(--plmsys-radius) 0 0;
     color: var(--plmsys-muted);
+    border-radius: var(--plmsys-radius-base) var(--plmsys-radius-base) 0 0;
 }
-
 .nav-tabs > li > a:hover {
-    border-color: var(--plmsys-border) var(--plmsys-border) transparent;
     color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border) var(--plmsys-border) transparent;
 }
-
 .nav-tabs > li.active > a,
 .nav-tabs > li.active > a:hover,
 .nav-tabs > li.active > a:focus {
     color: var(--plmsys-text);
+    background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border) var(--plmsys-border) transparent;
     border-top: 2px solid var(--plmsys-primary);
 }
@@ -416,180 +857,231 @@ fieldset[disabled] .form-control {
 .nav-pills > li.active > a,
 .nav-pills > li.active > a:hover,
 .nav-pills > li.active > a:focus {
-    background-color: var(--plmsys-primary);
     color: #fff;
+    background-color: var(--plmsys-primary);
 }
 
 /* ---------------------------------------------------------------------------
- * Dropdowns
+ * 8. Dropdowns
  * ------------------------------------------------------------------------ */
 
 .dropdown-menu {
+    color: var(--plmsys-text);
     background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border);
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-base);
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
     font-family: var(--plmsys-font-family);
 }
-
 .dropdown-menu > li > a,
 .dropdown-menu > li > span {
     color: var(--plmsys-text);
 }
-
 .dropdown-menu > li > a:hover,
 .dropdown-menu > li > a:focus {
-    background-color: var(--plmsys-surface-alt);
     color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface-alt);
 }
-
 .dropdown-menu > .active > a,
 .dropdown-menu > .active > a:hover,
 .dropdown-menu > .active > a:focus {
-    background-color: var(--plmsys-primary);
     color: #fff;
+    background-color: var(--plmsys-primary);
 }
-
-.dropdown-menu > .disabled > a {
+.dropdown-menu > .disabled > a,
+.dropdown-menu > .disabled > a:hover {
     color: var(--plmsys-muted);
 }
-
 .dropdown-header {
     color: var(--plmsys-muted);
 }
+.dropdown-menu .divider {
+    background-color: var(--plmsys-border);
+}
 
 /* ---------------------------------------------------------------------------
- * Pagination
+ * 9. Pagination, pager
  * ------------------------------------------------------------------------ */
 
 .pagination > li > a,
 .pagination > li > span {
-    color: var(--plmsys-primary);
+    color: var(--plmsys-link);
     background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border);
 }
-
 .pagination > li > a:hover,
 .pagination > li > span:hover,
 .pagination > li > a:focus,
 .pagination > li > span:focus {
+    color: var(--plmsys-link-hover);
     background-color: var(--plmsys-surface-alt);
     border-color: var(--plmsys-border);
-    color: var(--plmsys-primary-hover);
 }
-
 .pagination > .active > a,
 .pagination > .active > a:hover,
 .pagination > .active > a:focus,
-.pagination > .active > span {
+.pagination > .active > span,
+.pagination > .active > span:hover,
+.pagination > .active > span:focus {
+    color: #fff;
     background-color: var(--plmsys-primary);
     border-color: var(--plmsys-primary);
-    color: #fff;
 }
-
 .pagination > .disabled > a,
+.pagination > .disabled > a:hover,
 .pagination > .disabled > span {
     color: var(--plmsys-muted);
     background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border);
 }
 
-/* ---------------------------------------------------------------------------
- * Labels, badges, progress, alerts
- * ------------------------------------------------------------------------ */
-
-.label-primary, .badge {
-    background-color: var(--plmsys-primary);
+.pager > li > a,
+.pager > li > span {
+    color: var(--plmsys-link);
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+}
+.pager > li > a:hover, .pager > li > a:focus {
+    color: var(--plmsys-link-hover);
+    background-color: var(--plmsys-surface-alt);
+}
+.pager > .disabled > a,
+.pager > .disabled > a:hover,
+.pager > .disabled > span {
+    color: var(--plmsys-muted);
+    background-color: var(--plmsys-surface);
 }
 
+/* ---------------------------------------------------------------------------
+ * 10. Labels, badges, progress, alerts
+ * ------------------------------------------------------------------------ */
+
+.label {
+    color: #fff;
+    border-radius: calc(var(--plmsys-radius-base) - 1px);
+}
+.label-default { background-color: var(--plmsys-gray-light); }
+.label-primary { background-color: var(--plmsys-primary); }
 .label-success { background-color: var(--plmsys-success); }
 .label-info { background-color: var(--plmsys-info); }
 .label-warning { background-color: var(--plmsys-warning); }
 .label-danger { background-color: var(--plmsys-danger); }
-.label-default {
-    background-color: var(--plmsys-muted);
+
+.label a, .label a:hover, .label a:focus {
+    color: inherit;
+}
+
+.badge {
+    background-color: var(--plmsys-gray-light);
+}
+.list-group-item.active > .badge,
+.nav-pills > .active > a > .badge {
+    color: var(--plmsys-primary);
+    background-color: #fff;
 }
 
 .progress {
     background-color: var(--plmsys-surface-alt);
+    border-radius: var(--plmsys-radius-base);
     box-shadow: none;
 }
-
 .progress-bar {
+    color: #fff;
     background-color: var(--plmsys-primary);
 }
+.progress-bar-success { background-color: var(--plmsys-success); }
+.progress-bar-info { background-color: var(--plmsys-info); }
+.progress-bar-warning { background-color: var(--plmsys-warning); }
+.progress-bar-danger { background-color: var(--plmsys-danger); }
 
 .alert {
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-base);
+    font-family: var(--plmsys-font-family);
 }
-
-.alert-info {
-    background-color: var(--plmsys-surface-alt);
-    border-color: var(--plmsys-info);
-    color: var(--plmsys-info);
-}
-
 .alert-success {
-    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-success-fg);
+    background-color: var(--plmsys-success-soft);
     border-color: var(--plmsys-success);
-    color: var(--plmsys-success);
 }
-
+.alert-info {
+    color: var(--plmsys-info-fg);
+    background-color: var(--plmsys-info-soft);
+    border-color: var(--plmsys-info);
+}
 .alert-warning {
-    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-warning-fg);
+    background-color: var(--plmsys-warning-soft);
     border-color: var(--plmsys-warning);
-    color: var(--plmsys-warning);
+}
+.alert-danger {
+    color: var(--plmsys-danger-fg);
+    background-color: var(--plmsys-danger-soft);
+    border-color: var(--plmsys-danger);
+}
+.alert-link {
+    color: inherit;
+    font-weight: 700;
 }
 
-.alert-danger {
-    background-color: var(--plmsys-surface-alt);
-    border-color: var(--plmsys-danger);
-    color: var(--plmsys-danger);
+.close {
+    color: var(--plmsys-text);
+    opacity: 0.55;
+    text-shadow: none;
+}
+.close:hover, .close:focus {
+    color: var(--plmsys-text);
+    opacity: 0.85;
 }
 
 /* ---------------------------------------------------------------------------
- * Wells, list groups, breadcrumbs, modals, popovers
+ * 11. Wells, list groups, breadcrumbs, modals, popovers
  * ------------------------------------------------------------------------ */
 
 .well {
     background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border);
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-base);
     box-shadow: none;
 }
 
 .list-group-item {
+    color: var(--plmsys-text);
     background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border);
-    color: var(--plmsys-text);
 }
-
 .list-group-item-heading {
     color: var(--plmsys-text);
 }
-
-a.list-group-item:hover,
-a.list-group-item:focus {
-    background-color: var(--plmsys-surface-alt);
-    color: var(--plmsys-primary);
+.list-group-item-text {
+    color: var(--plmsys-muted);
 }
-
+a.list-group-item, button.list-group-item {
+    color: var(--plmsys-text);
+}
+a.list-group-item:hover, a.list-group-item:focus,
+button.list-group-item:hover, button.list-group-item:focus {
+    color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface-alt);
+}
 .list-group-item.active,
 .list-group-item.active:hover,
 .list-group-item.active:focus {
+    color: #fff;
     background-color: var(--plmsys-primary);
     border-color: var(--plmsys-primary);
 }
+.list-group-item.success { color: var(--plmsys-success-fg); background-color: var(--plmsys-success-soft); }
+.list-group-item.info { color: var(--plmsys-info-fg); background-color: var(--plmsys-info-soft); }
+.list-group-item.warning { color: var(--plmsys-warning-fg); background-color: var(--plmsys-warning-soft); }
+.list-group-item.danger { color: var(--plmsys-danger-fg); background-color: var(--plmsys-danger-soft); }
 
 .breadcrumb {
     background-color: var(--plmsys-surface-alt);
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-base);
 }
-
 .breadcrumb > li + li:before {
     color: var(--plmsys-muted);
 }
-
 .breadcrumb > .active {
     color: var(--plmsys-muted);
 }
@@ -597,29 +1089,100 @@ a.list-group-item:focus {
 .modal-content {
     background-color: var(--plmsys-surface);
     border-color: var(--plmsys-border);
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-large);
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.25);
 }
-
 .modal-header, .modal-footer {
     border-color: var(--plmsys-border);
 }
-
-.popover {
-    border-color: var(--plmsys-border);
-    font-family: var(--plmsys-font-family);
+.modal-backdrop.in {
+    opacity: 0.6;
 }
 
+.popover {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius-large);
+    font-family: var(--plmsys-font-family);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+}
 .popover-title {
     background-color: var(--plmsys-surface-alt);
     border-bottom-color: var(--plmsys-border);
 }
+.popover.top > .arrow:after { border-top-color: var(--plmsys-surface); }
+.popover.right > .arrow:after { border-right-color: var(--plmsys-surface); }
+.popover.bottom > .arrow:after { border-bottom-color: var(--plmsys-surface); }
+.popover.left > .arrow:after { border-left-color: var(--plmsys-surface); }
 
 .tooltip {
     font-family: var(--plmsys-font-family);
 }
+.tooltip-inner {
+    background-color: var(--plmsys-gray-darker);
+    border-radius: var(--plmsys-radius-base);
+}
+.tooltip.top .tooltip-arrow { border-top-color: var(--plmsys-gray-darker); }
+.tooltip.right .tooltip-arrow { border-right-color: var(--plmsys-gray-darker); }
+.tooltip.bottom .tooltip-arrow { border-bottom-color: var(--plmsys-gray-darker); }
+.tooltip.left .tooltip-arrow { border-left-color: var(--plmsys-gray-darker); }
+
+.media-heading {
+    color: var(--plmsys-text);
+}
+.thumbnail {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius-base);
+}
+.thumbnail a > img, .thumbnail > img {
+    border-radius: calc(var(--plmsys-radius-base) - 1px);
+}
 
 /* ---------------------------------------------------------------------------
- * Utilities
+ * 12. FAB layout / helper classes (from FAB's ab.css)
+ * ------------------------------------------------------------------------ */
+
+.wrap {
+    min-height: 100%;
+    height: auto !important;
+}
+
+.fixed-footer {
+    background-color: var(--plmsys-surface-alt);
+}
+
+td.filter {
+    width: 50%;
+}
+
+th.action_checkboxes {
+    width: 1%;
+}
+
+.cursor-hand {
+    cursor: pointer;
+    cursor: hand;
+}
+
+.img-select {
+    outline: 2px solid var(--plmsys-primary);
+}
+
+.img-unselect {
+    outline: 1px solid var(--plmsys-border-strong);
+}
+
+.fa-black {
+    color: var(--plmsys-text);
+}
+
+.panel-group .panel {
+    overflow: visible;
+}
+
+/* ---------------------------------------------------------------------------
+ * 13. Utilities
  * ------------------------------------------------------------------------ */
 
 .text-primary { color: var(--plmsys-primary) !important; }
@@ -641,7 +1204,7 @@ blockquote {
 }
 
 /* ---------------------------------------------------------------------------
- * FAB app shell — layout
+ * 14. PLMSys shell — layout (header, nav rail, location bar, tiles)
  * ------------------------------------------------------------------------ */
 
 .plmsys-header {
@@ -670,7 +1233,6 @@ blockquote {
     text-decoration: none;
     white-space: nowrap;
 }
-
 .plmsys-brand:hover, .plmsys-brand:focus {
     color: var(--plmsys-nav-text-strong);
     text-decoration: none;
@@ -681,25 +1243,22 @@ blockquote {
     flex: 1 1 auto;
     max-width: 520px;
 }
-
 .plmsys-search .fa-search {
     position: absolute;
     left: 10px;
     top: 9px;
     color: var(--plmsys-header-search-muted);
 }
-
 .plmsys-search input {
     width: 100%;
     border: 0;
-    border-radius: var(--plmsys-radius);
+    border-radius: var(--plmsys-radius-base);
     padding: 7px 10px 7px 32px;
     background: var(--plmsys-header-search-bg);
     color: var(--plmsys-header-search-text);
     outline: none;
     font-family: var(--plmsys-font-family);
 }
-
 .plmsys-search input::placeholder {
     color: var(--plmsys-header-search-muted);
 }
@@ -713,11 +1272,9 @@ blockquote {
 .plmsys-user {
     margin: 0;
 }
-
 .plmsys-user > li > a {
     color: var(--plmsys-nav-text);
 }
-
 .plmsys-user > li > a:hover, .plmsys-user > li > a:focus,
 .plmsys-user > li.open > a {
     color: var(--plmsys-nav-text-strong);
@@ -738,23 +1295,19 @@ blockquote {
     min-height: calc(100vh - var(--plmsys-header-height));
     font-family: var(--plmsys-font-family);
 }
-
 .plmsys-nav a {
     color: var(--plmsys-nav-text);
     text-decoration: none;
     display: block;
 }
-
 .plmsys-nav a:hover, .plmsys-nav a:focus {
     color: var(--plmsys-nav-text-strong);
     background: var(--plmsys-nav-hover);
 }
-
 .plmsys-nav-item {
     padding: 7px 16px;
     font-weight: 600;
 }
-
 .plmsys-nav-heading {
     padding: 14px 16px 4px;
     color: var(--plmsys-nav-heading);
@@ -762,13 +1315,11 @@ blockquote {
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
-
 .plmsys-nav-list {
     list-style: none;
     margin: 0;
     padding: 0;
 }
-
 .plmsys-nav-list a {
     padding: 6px 16px 6px 24px;
     font-size: 13px;
@@ -788,7 +1339,6 @@ blockquote {
     color: var(--plmsys-muted);
     font-size: 13px;
 }
-
 .plmsys-location a {
     color: var(--plmsys-muted);
 }
@@ -800,26 +1350,22 @@ blockquote {
     font-size: 12px;
 }
 
-/* Home tiles / KPIs */
 .plmsys-tile {
     background: var(--plmsys-surface);
     border: 1px solid var(--plmsys-border);
-    border-radius: 6px;
+    border-radius: var(--plmsys-radius-large);
     padding: 16px 18px;
     margin-bottom: 18px;
     height: 100%;
 }
-
 .plmsys-tile h4 {
     margin: 0 0 6px;
 }
-
 a.plmsys-tile {
     display: block;
     color: var(--plmsys-text);
     text-decoration: none;
 }
-
 a.plmsys-tile:hover {
     border-color: var(--plmsys-primary);
     text-decoration: none;
@@ -840,14 +1386,22 @@ a.plmsys-tile:hover {
 .plmsys-hero {
     margin-bottom: 20px;
 }
-
 .plmsys-hero h1 {
     margin-top: 6px;
 }
 
 /* ---------------------------------------------------------------------------
- * Responsive: collapse the nav rail and stack the data panes on small screens
+ * 15. Responsive & accessibility
  * ------------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *:before, *:after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
 
 @media (max-width: 991px) {
     :root {

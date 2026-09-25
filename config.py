@@ -121,7 +121,11 @@ IMG_UPLOAD_URL = "/static/uploads/"
 # APP_THEME = "journal.css"
 # APP_THEME = "readable.css"
 # APP_THEME = "simplex.css"
-APP_THEME = "flatly.css"  # light base, recoloured by app/templates/static/plmsys.css
+# Bootswatch themes are disabled: app/templates/static/plmsys.css is the sole
+# theme layer for both the shell and FAB's inner views (docs/ui_plan.md UI-0c).
+# Leave empty so FAB emits no `themes/<name>` link; FAB still loads Bootstrap 3
+# core, Font Awesome and ab.css, and plmsys.css is loaded last.
+APP_THEME = ""
 # APP_THEME = "spacelab.css"
 # APP_THEME = "united.css"
 # APP_THEME = "yeti.css"

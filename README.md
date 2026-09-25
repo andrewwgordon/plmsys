@@ -79,11 +79,12 @@ All application config lives in `config.py`.
 
 - **Theme** — the palette, typography and FAB/Bootstrap component overrides live
   in `app/templates/static/plmsys.css` (served at `/static/plmsys.css`) and are
-  linked from `app/templates/base_layout.html` after FAB's base theme.
-  `APP_THEME` selects the light Bootswatch base (`flatly.css`) that the
-  stylesheet recolours. Changing the `--plmsys-*` custom properties re-themes
-  both the shell and every FAB component. App static assets (including future
-  uploads) live under `app/templates/static/`.
+  linked from `app/templates/base_layout.html` after FAB's own stylesheets.
+  `APP_THEME` is disabled, so no Bootswatch theme is loaded: `plmsys.css` is the
+  sole theme layer and mirrors Bootstrap 3's design tokens. Changing the
+  `--plmsys-*` custom properties re-themes both the shell and every FAB
+  component. App static assets (including future uploads) live under
+  `app/templates/static/`.
 - **Schema ownership** — `FAB_CREATE_DB = False` and `AUTO_CREATE_SCHEMA = False`
   keep schema creation in Alembic. `AUTO_SEED = True` seeds business data once
   the schema is ready.

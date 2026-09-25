@@ -5,7 +5,8 @@
     {{ super() }}
     {# PLMSys palette, FAB/Bootstrap component overrides and shell layout.
        Loaded after FAB's base theme so it wins the cascade. #}
-    <link rel="stylesheet" href="{{ url_for('static', filename='plmsys.css') }}">
+    <link id="plmsys-theme" rel="stylesheet"
+          href="{{ url_for('static', filename='plmsys.css') }}">
 {% endblock %}
 
 {% block body %}
