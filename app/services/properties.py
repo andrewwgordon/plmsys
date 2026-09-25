@@ -265,10 +265,17 @@ def matrix(revisions, definitions) -> list:
 def copy_properties(source, target, *, overwrite: bool = True, session=None):
     """Copy every value from ``source`` to ``target`` revision.
 
-    Returns the number of values copied. When ``overwrite`` is false, existing
-    target values at the same ``(definition, sequence_no)`` are left alone.
+    Values whose definition does not belong to the target revision's object
+    type are skipped, so a cross-type copy (e.g. deriving a requirement from a
+    part) cannot attach foreign definitions to the target. Returns the number
+    of values copied; when ``overwrite`` is false, existing target values at the
+    same ``(definition, sequence_no)`` are left alone.
     """
     session = _session(session)
+    target_type_id = None
+    if target.business_object is not None:
+        target_type_id = target.business_object.object_type_id
+
     existing = {
         (pv.property_definition_id, pv.sequence_no): pv
         for pv in target.property_values
@@ -276,6 +283,9 @@ def copy_properties(source, target, *, overwrite: bool = True, session=None):
 
     copied = 0
     for source_value in source.property_values:
+        definition = source_value.property_definition
+        if target_type_id is not None and definition.object_type_id != target_type_id:
+            continue
         key = (source_value.property_definition_id, source_value.sequence_no)
         target_value = existing.get(key)
         if target_value is not None and not overwrite:
@@ -283,7 +293,7 @@ def copy_properties(source, target, *, overwrite: bool = True, session=None):
         if target_value is None:
             target_value = PropertyValue(
                 revision=target,
-                property_definition=source_value.property_definition,
+                property_definition=definition,
                 sequence_no=source_value.sequence_no,
             )
             session.add(target_value)

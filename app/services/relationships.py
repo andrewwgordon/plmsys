@@ -7,8 +7,10 @@ Phase 4).
 
 from collections import deque
 
+from sqlalchemy.orm import joinedload
+
 from ..extensions import db
-from ..models import Relationship, RelationshipType
+from ..models import Relationship, RelationshipType, Revision
 from . import ServiceError
 
 _DIRECTIONS = ("out", "in", "both")
@@ -70,7 +72,15 @@ def create_relationship(
 
 def _edges(revision, direction: str, type_names, session):
     """Yield ``(relationship, neighbour)`` typed edges for a revision."""
-    query = session.query(Relationship)
+    query = session.query(Relationship).options(
+        joinedload(Relationship.relationship_type),
+        joinedload(Relationship.primary_revision).joinedload(
+            Revision.business_object
+        ),
+        joinedload(Relationship.secondary_revision).joinedload(
+            Revision.business_object
+        ),
+    )
     if direction == "out":
         query = query.filter(Relationship.primary_revision_id == revision.id)
     elif direction == "in":

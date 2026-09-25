@@ -1,7 +1,7 @@
 """Phase 4 traceability: relation forms, relations section and matrix."""
 
 from app.models import BusinessObject, ObjectType, Relationship
-from app.services import revisions
+from app.services import properties, revisions
 from app.views import RelationshipModelView
 
 
@@ -117,6 +117,41 @@ def test_derive_rejects_duplicate_object_number(db_session, admin_client):
     assert b"already exists" in response.data
 
 
+def test_derive_copies_requirement_properties(db_session, admin_client):
+    source = _revision(db_session, "REQ-0001")
+    source_text = properties.get_properties(source)["req_text"]
+
+    response = admin_client.post(
+        f"/relation/{source.id}/derive",
+        data={
+            "object_number": "REQ-0901",
+            "name": "Derived Copy",
+            "copy_properties": "y",
+        },
+        follow_redirects=True,
+    )
+
+    assert b"created and derived" in response.data
+    db_session.expire_all()
+    new_object = (
+        db_session.query(BusinessObject).filter_by(object_number="REQ-0901").one()
+    )
+    assert properties.get_properties(new_object.current_revision)["req_text"] == source_text
+
+
+def test_derive_rejects_non_requirement_source(db_session, admin_client):
+    part_revision = _revision(db_session, "PART-1000")
+
+    assert admin_client.get(f"/relation/{part_revision.id}/derive").status_code == 404
+    assert (
+        admin_client.post(
+            f"/relation/{part_revision.id}/derive",
+            data={"object_number": "REQ-X", "name": "X"},
+        ).status_code
+        == 404
+    )
+
+
 # ---------------------------------------------------------------------------
 # Traceability matrix
 # ---------------------------------------------------------------------------
@@ -146,7 +181,50 @@ def test_matrix_highlights_uncovered_requirement(db_session, admin_client):
     body = admin_client.get("/traceability/").get_data(as_text=True)
 
     assert "REQ-GAP" in body
-    assert '<tr class="danger">' in body  # coverage-gap row
+    assert '<tr class="danger">' in body   # coverage-gap row
+    assert '<tr class="">' in body         # covered rows remain unmarked
+
+
+def test_add_relation_rejects_wrong_target_type(db_session, admin_client):
+    revision = _revision(db_session, "REQ-0003")
+    part_id = _object_id(db_session, "PART-1000")
+
+    response = admin_client.post(
+        f"/relation/{revision.id}/",
+        data={"relationship_type": "VERIFIED_BY", "target": str(part_id)},
+        follow_redirects=True,
+    )
+
+    assert b"cannot target" in response.data
+    db_session.expire_all()
+    assert (
+        db_session.query(Relationship)
+        .filter_by(secondary_revision_id=_revision(db_session, "PART-1000").id)
+        .count()
+        == 0
+    )
+
+
+def test_add_relation_handles_integrity_error(monkeypatch, db_session, admin_client):
+    from sqlalchemy.exc import IntegrityError
+
+    from app.ui import traceability
+
+    def _boom(*args, **kwargs):
+        raise IntegrityError("stmt", {}, Exception("duplicate"))
+
+    monkeypatch.setattr(traceability.relationships, "create_relationship", _boom)
+
+    revision = _revision(db_session, "REQ-0003")
+    target_id = _object_id(db_session, "SWC-400")
+    response = admin_client.post(
+        f"/relation/{revision.id}/",
+        data={"relationship_type": "ALLOCATED_TO", "target": str(target_id)},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"conflicts with existing data" in response.data
 
 
 # ---------------------------------------------------------------------------
@@ -178,3 +256,12 @@ def test_relation_actions_redirect(db_session, admin_client):
         )
         assert response.status_code == 302
         assert response.headers["Location"].endswith(path)
+
+
+def test_traceability_views_deny_viewer(db_session, viewer_client):
+    revision = _revision(db_session, "REQ-0003")
+
+    assert viewer_client.get(f"/relation/{revision.id}/").status_code == 403
+    assert viewer_client.get(f"/relation/{revision.id}/derive").status_code == 403
+    assert viewer_client.get(f"/revision/{revision.id}/relations").status_code == 403
+    assert viewer_client.get("/traceability/").status_code == 403

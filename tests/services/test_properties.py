@@ -274,3 +274,21 @@ def test_matrix_returns_typed_cells(session):
 
     assert rows[0]["revision"] is revision
     assert rows[0]["cells"] == ["High", 7]
+
+
+def test_copy_properties_skips_cross_type_definitions(session):
+    """A Part definition/value must not be copied onto a Requirement revision."""
+    part = _requirement(session, "PART-1000")
+    part_revision = part.current_revision
+    part_definition = _definition(
+        session, part.object_type, "part_weight", PropertyDataType.STRING
+    )
+    properties.set_property(
+        part_revision, part_definition, "12kg", session=session
+    )
+
+    target = _requirement(session, "REQ-0003").current_revision
+    copied = properties.copy_properties(part_revision, target, session=session)
+
+    assert copied == 0
+    assert "part_weight" not in properties.get_properties(target)

@@ -10,6 +10,7 @@ from flask import abort, flash, redirect, url_for
 from flask_appbuilder import BaseView, expose
 from flask_appbuilder.security.decorators import has_access
 from flask_wtf import FlaskForm
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload
 from wtforms import BooleanField, SelectField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Optional
@@ -18,21 +19,46 @@ from ..extensions import db
 from ..models import BusinessObject, ObjectType, Relationship, Revision
 from ..services import ServiceError, properties, relationships, revisions
 
+# Offered by the generic Add Relation form.
 _RELATION_TYPES = ("DEFINING", "ALLOCATED_TO", "VERIFIED_BY", "SATISFIED_BY")
 # Columns shown by the matrix (all outbound from the requirement revision).
 _MATRIX_TYPES = ("DEFINING", "ALLOCATED_TO", "VERIFIED_BY", "SATISFIED_BY")
+# Allowed target object types per relationship type (typed traceability).
+_TARGET_TYPES = {
+    "DEFINING": {"Requirement"},
+    "ALLOCATED_TO": {"ArchitectureElement", "Part", "SoftwareComponent"},
+    "VERIFIED_BY": {"TestCase"},
+    "SATISFIED_BY": {"Part", "Function", "SoftwareComponent", "ArchitectureElement"},
+}
+_ALLOWED_TARGET_TYPES = tuple(sorted(set().union(*_TARGET_TYPES.values())))
 
 
 def _requirement_type():
-    return db.session.query(ObjectType).filter_by(name="Requirement").one()
+    object_type = (
+        db.session.query(ObjectType).filter_by(name="Requirement").one_or_none()
+    )
+    if object_type is None:
+        abort(404)
+    return object_type
 
 
 def _selectable_objects(exclude_object_id):
+    """Objects that are valid targets for at least one relationship type."""
     return (
         db.session.query(BusinessObject)
+        .join(ObjectType, BusinessObject.object_type_id == ObjectType.id)
         .filter(BusinessObject.id != exclude_object_id)
+        .filter(ObjectType.name.in_(_ALLOWED_TARGET_TYPES))
         .order_by(BusinessObject.object_number)
         .all()
+    )
+
+
+def _conflict_flash():
+    flash(
+        "The change conflicts with existing data "
+        "(duplicate or concurrent update).",
+        "danger",
     )
 
 
@@ -93,8 +119,16 @@ class RelationFormView(BaseView):
         if form.validate_on_submit():
             target = db.session.get(BusinessObject, form.target.data)
             target_revision = target.current_revision if target else None
+            allowed = _TARGET_TYPES.get(form.relationship_type.data, set())
+            target_type_name = target.object_type.name if target else None
             if target_revision is None:
                 flash("The selected object has no current revision.", "danger")
+            elif allowed and target_type_name not in allowed:
+                flash(
+                    f"{form.relationship_type.data} cannot target a "
+                    f"{target_type_name}.",
+                    "danger",
+                )
             else:
                 try:
                     relationships.create_relationship(
@@ -103,6 +137,9 @@ class RelationFormView(BaseView):
                 except ServiceError as exc:
                     db.session.rollback()
                     flash(str(exc), "danger")
+                except IntegrityError:
+                    db.session.rollback()
+                    _conflict_flash()
                 else:
                     db.session.commit()
                     flash("Relationship created.", "success")
@@ -124,7 +161,11 @@ class DeriveRequirementView(BaseView):
     @has_access
     def derive(self, pk):
         source = db.session.get(Revision, pk)
-        if source is None:
+        if (
+            source is None
+            or source.business_object is None
+            or source.business_object.object_type.name != "Requirement"
+        ):
             abort(404)
         form = DeriveRequirementForm()
 
@@ -161,6 +202,9 @@ class DeriveRequirementView(BaseView):
             except ServiceError as exc:
                 db.session.rollback()
                 flash(str(exc), "danger")
+            except IntegrityError:
+                db.session.rollback()
+                _conflict_flash()
             else:
                 db.session.commit()
                 flash(
@@ -208,15 +252,11 @@ class TraceabilityMatrixView(BaseView):
             db.session.query(Revision)
             .join(BusinessObject, Revision.object_id == BusinessObject.id)
             .filter(BusinessObject.object_type_id == requirement_type.id)
+            .filter(BusinessObject.current_revision_id == Revision.id)
             .options(selectinload(Revision.business_object))
             .order_by(BusinessObject.object_number, Revision.sequence_no)
             .all()
         )
-        revisions = [
-            revision
-            for revision in revisions
-            if revision.business_object.current_revision_id == revision.id
-        ]
 
         # One bulk query for every outbound edge of the row set (no per-row N+1).
         by_primary = {}

@@ -538,6 +538,15 @@ bulk-loaded `TraceabilityMatrixView` with coverage-gap rows. Revision actions
 requirement ↔ Function and requirement ↔ SoftwareComponent links. Covered by
 `tests/services/test_relationships.py` and `tests/views/test_traceability.py`.
 
+**Review follow-ups (applied):** `properties.copy_properties` skips definitions
+that do not belong to the target revision's object type (no cross-type copy on
+derive); the relation/derive forms catch `IntegrityError` as well as
+`ServiceError`; `relationships.neighbours` eager-loads its typed edges (no
+N+1); the Add Relation form restricts target objects to type-appropriate ones
+and rejects mismatches; derive is limited to requirement sources; the matrix
+joins the current revision in SQL; and the migration documents the duplicate
+cleanup needed before adding the unique constraint.
+
 **Deliverable:** end-to-end requirement decomposition and cross-domain
 traceability visible in the UI; duplicate and self links rejected at both the
 service and DB level.

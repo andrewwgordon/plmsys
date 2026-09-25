@@ -1,8 +1,10 @@
 """Relationship service: typed links and transitive trace traversal."""
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
 
+from app.extensions import db
 from app.models import BusinessObject, Relationship
 from app.services import ServiceError, relationships
 
@@ -113,3 +115,24 @@ def test_duplicate_relationship_violates_db_constraint(session):
     with pytest.raises(IntegrityError):
         session.flush()
     session.rollback()
+
+
+def test_neighbours_does_not_n_plus_one(session):
+    """Edges must eager-load their type and neighbour in one query."""
+    req1 = _revision(session, "REQ-0001", 1)
+    statements = []
+
+    def _record(conn, cursor, statement, params, context, executemany):
+        statements.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", _record)
+    try:
+        edges = relationships.neighbours(req1, "both", session=session)
+        for relationship, neighbour in edges:
+            _ = relationship.relationship_type.name
+            _ = neighbour.business_object.object_number
+    finally:
+        event.remove(db.engine, "before_cursor_execute", _record)
+
+    assert edges
+    assert len(statements) <= 3
