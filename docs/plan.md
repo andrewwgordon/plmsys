@@ -298,25 +298,74 @@ call. **UI (UI-1):** Object page tabs can now consume the
 
 ### Phase 2 — Revision & lifecycle management
 
-**Objective:** controlled revision creation and release lifecycle.
+**Objective:** controlled revision creation and release lifecycle through the
+UI.
 
-1. Add a **"Create Revision"** FAB `@action` on `BusinessObjectModelView`
-   (and `RequirementModelView`) that calls
-   `revisions.create_revision(...)` and optionally copies property values.
-2. Add **"Set Current Revision"** action that validates the chosen revision
-   belongs to the object.
-3. Release lifecycle:
-   - `services/lifecycle.py`: `assign_release_state(revision, state_name)`,
-     `release(revision)`, `obsolete(revision)`.
-   - Enforce a simple state machine:
-     `Draft → Review → Approved → Released → Obsolete`.
-   - Guard: only `Released` revisions can enter a baseline.
-4. Add release-state badges via `@renders` on `RevisionModelView`.
-5. Seed additional `RevisionLineage` chains.
+> **Dependency:** the service layer already exists. `services/lifecycle.py`
+> (`assign_release_state`, `submit_for_review`, `approve`, `release`,
+> `obsolete`, `current_state_name`, `ensure_released`, and the state machine)
+> and `services/revisions.py` (`create_revision`, `revert_to_revision`) landed
+> in Phase 1. This phase **wires those services into FAB**; do not reimplement
+> business logic here.
 
-**Deliverable:** users can branch/release revisions through the UI; invalid
-transitions are rejected with a flash message.
-**UI (UI-1/UI-7):** History tab, lifecycle command bar, release-state badges.
+1. Create a shared **`RevisionActionsMixin`** (e.g. `app/views/revisions.py`)
+   used by `BusinessObjectModelView`, `RequirementModelView` and
+   `RevisionModelView`. Every action must:
+   - normalise its argument (a single model on the show route, a list on
+     `POST /action_post`);
+   - call the service, `commit` on success and `rollback` on `ServiceError`;
+   - `flash(...)` the outcome (invalid transitions as `"danger"`) and
+     `redirect(self.get_redirect())`.
+2. **"Create Revision"** action on `BusinessObjectModelView` and
+   `RequirementModelView` (single row) → `revisions.create_revision(obj)`.
+   The service computes the next label, records `RevisionLineage`, copies
+   property values and starts the revision in `Draft`. If a title/description
+   or a copy/no-copy choice is wanted, use an action form; otherwise document
+   that the object's name/description and copy-by-default are used.
+3. **"Set Current Revision"** action on `RevisionModelView` (single row —
+   **not** on the object, since a FAB action there cannot choose a revision) →
+   `revisions.revert_to_revision(revision.business_object, revision)`, which
+   validates ownership and re-syncs the status cache.
+4. **Lifecycle actions** on `RevisionModelView` (single row, with confirmation
+   for Release/Obsolete): Submit for Review, Approve, Release, Obsolete →
+   `lifecycle.submit_for_review/approve/release/obsolete`. Document the actual
+   transition table: in addition to the forward chain
+   `Draft → Review → Approved → Released → Obsolete`, the implementation allows
+   `Review → Draft`, `Approved → Review`, and any state → `Obsolete`.
+5. **Release-state badges** via `@renders` on `RevisionModelView`: a
+   `release_state_badge` accessor reading `lifecycle.current_state_name(revision)`,
+   mapped to Bootstrap labels (`Draft=label-default`, `Review=label-info`,
+   `Approved=label-warning`, `Released=label-success`,
+   `Obsolete=label-danger`). Include the state **text**, not colour alone
+   ([`ui_plan.md`](./ui_plan.md) UI-9).
+6. **Stop bypassing the lifecycle.** Remove `status` from the add/edit columns
+   of `RevisionModelView` and `BusinessObjectModelView` (it is a cache owned by
+   `services/lifecycle` — convention §3.14), and remove `current_revision` from
+   `BusinessObjectModelView.edit_columns` so it changes only via the "Set
+   Current Revision" action. Make the `Revision` add form read-only or route
+   creation through the action.
+7. **Enforce the baseline guard.** Add `pre_add` (or `on_model_change`)
+   validation to `BaselineMemberModelView` calling
+   `lifecycle.ensure_released(revision)`; Phase 6's `create_baseline` service
+   must call the same guard.
+8. **Permissions.** New actions register permissions named after the action
+   (`create_revision`, `set_current_revision`, `release`, …). Admin is
+   auto-granted; Phase 12 maps them onto the Engineer/Reviewer roles.
+9. **Tests** (`tests/views/`): actions through the show route *and*
+   `/action_post`; invalid transition flashes and leaves state unchanged;
+   viewer denied; badge rendering; the baseline guard rejects a `Draft`
+   revision. Keep `test_all_list_views_render` green.
+10. **Seed.** Replace the vague "additional lineage chains" with: branch the
+    seeded multi-revision objects through `revisions.create_revision(...)` so
+    lineage and release-state rows are produced by the service, or drop the
+    item.
+
+**Deliverable:** users can branch, approve, release/obsolete and set the
+current revision through the UI; invalid transitions and non-released baseline
+members are rejected with a flash message.
+**UI (UI-1/UI-7):** list/show release-state badges land in this phase; the
+Object-page History tab (`RevisionLineage` + release-state changes) and the
+lifecycle command bar are delivered with the Object page.
 
 ---
 
