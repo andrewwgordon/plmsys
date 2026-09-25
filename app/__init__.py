@@ -26,7 +26,11 @@ def _schema_ready(engine) -> bool:
 
 
 def create_app(config_overrides=None) -> Flask:
-    app = Flask(__name__)
+    # App static assets (the shared stylesheet, uploads, favicons…) live under
+    # app/templates/static and are served at /static/. FAB serves its own
+    # assets from its separate /appbuilder blueprint, so this does not affect
+    # the framework. See docs/ui_plan.md UI-0b.
+    app = Flask(__name__, static_folder="templates/static")
     app.config.from_object("config")
     if config_overrides:
         app.config.update(config_overrides)

@@ -59,8 +59,9 @@ authentication, ACLs.
 list views and the application's own add forms render, and create/edit POSTs
 succeed (including the `PropertyDataType` enum round-trip). `app.db` is now
 gitignored. **Phase 0 is complete — see §5.** The Phase 1 service layer and its
-tests are also in place (73 pytest tests pass; `flask db check` reports no
-schema drift), with foreign-key indexes added by migration `26f349ed091f`.
+tests are also in place (74 pytest tests pass; `flask db check` reports no
+schema drift), with foreign-key indexes added by migration `26f349ed091f`. The
+theme CSS now lives in `app/templates/static/plmsys.css` (UI-0b).
 
 **UI baseline:** the UI-0 shell is in place — a global header, left navigation
 panel, location bar, config-driven Home page and a Bootstrap colour schema. The
@@ -175,8 +176,10 @@ app/
 │   ├── index.html         # Home tiles
 │   ├── object_detail.html # Object page with tabs
 │   ├── structure.html     # BOM tree + data panes
-│   └── traceability.html  # Traceability matrix
-└── static/
+│   ├── traceability.html  # Traceability matrix
+│   └── static/            # app static assets (served at /static/)
+│       ├── plmsys.css     # shared palette, typography + FAB/Bootstrap overrides
+│       └── uploads/       # managed files (Phase 7)
 migrations/                # Alembic
 tests/
 ```
@@ -203,6 +206,7 @@ The roadmap runs two interleaved tracks:
 | UI phase | Scope | Lands with |
 |---|---|---|
 | UI-0 ✅ | Global shell, theme, task-oriented menu, Home skeleton | Phase 0 |
+| UI-0b ✅ | External stylesheet; align all FAB core components (colours + fonts) with the shell | Phase 0 follow-up |
 | UI-1 | Object page: Summary / Details / Relations / History | Phases 1–3 |
 | UI-2 | Global search, advanced/saved searches | Phase 11 |
 | UI-3 | Favorites, Recent, Worklist, user context prefs | Phases 9, 12 |
@@ -234,8 +238,14 @@ The roadmap runs two interleaved tracks:
 `pytest` passes (**20 tests**), and migrations own the schema (`flask db migrate`
 reports "No changes in schema detected").
 **UI (UI-0):** ✅ global shell (`base_layout.html`), task-oriented menu, Home
-skeleton and a config-driven Bootstrap colour schema
+skeleton and a Bootstrap colour schema
 ([`ui_plan.md`](./ui_plan.md) §6, §7.1, §9–10).
+
+**UI (UI-0b — ✅ complete):** the theme was externalised from `config.py` to
+`app/templates/static/plmsys.css` (served at `/static/plmsys.css`) and the
+overrides were extended to every core FAB/Bootstrap 3 component, with shared
+colour and font custom properties so the shell and FAB render identically. See
+[`ui_plan.md`](./ui_plan.md) UI-0b.
 
 ---
 
@@ -548,6 +558,11 @@ logged-in test client.
 - **UI conforms to [`ui_plan.md`](./ui_plan.md).** Navigation is task-oriented,
   not table-oriented; the Object page is the primary surface; every object
   reference is a link ("1-click-away").
+- **One stylesheet for the shell and FAB.** App CSS lives in
+  `app/templates/static/plmsys.css` (loaded after FAB's base theme); colours and
+  fonts are `--plmsys-*` custom properties. Target Bootstrap 3 class names and
+  never put CSS back into `config.py`
+  ([`ui_plan.md`](./ui_plan.md) UI-0b).
 - **Custom pages stay thin.** `BaseView`/UI code queries through
   `app/services/`, uses FAB's `SQLAInterface` where possible, and never issues
   ad-hoc SQL.

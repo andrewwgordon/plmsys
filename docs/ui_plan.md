@@ -469,9 +469,43 @@ Ordered so each phase yields a usable improvement. Phases are independent of
    set `FAB_INDEX_VIEW`.
 4. ✅ Restructure `register_views()` menu categories per §6.2 (no new pages yet);
    add `Setup` `menu_cond` for Admin.
-5. ✅ Apply a config-driven Bootstrap colour schema (`PLMSYS_COLORS` /
-   `PLMSYS_THEME_CSS` in `config.py`) plus CSS for tiles and the left rail.
+5. ✅ Apply a Bootstrap colour schema plus CSS for tiles and the left rail
+   (later externalised — see UI-0b).
 6. **Deliverable:** ✅ new shell on every page; menu reflects business domains.
+
+### UI-0b — Externalise the theme & align all FAB components — ✅ Complete
+
+**Objective:** one shared stylesheet so the shell and every core
+Flask-AppBuilder component use the same colours and fonts.
+
+1. ✅ Move the theme CSS out of `config.py` into
+   `app/templates/static/plmsys.css` (served at `/static/plmsys.css`; the app
+   factory sets `static_folder="templates/static"`). `config.py` no longer
+   builds CSS at import time.
+2. ✅ Keep the palette and typography as CSS custom properties in `:root`
+   (`--plmsys-*`), so a palette change is a single-file edit.
+3. ✅ Load the stylesheet after FAB's base theme in
+   `app/templates/base_layout.html`'s `head_css` block so the overrides win the
+   cascade.
+4. ✅ Extend the overrides from buttons/panels/tables to **all core FAB /
+   Bootstrap 3 components**: buttons, panels, tables, forms (`form-control`,
+   validation, input groups), select2, navbar/navs/tabs/pills, dropdowns,
+   pagination, labels/badges/progress/alerts, wells/list groups/breadcrumbs,
+   modals/popovers, and utilities.
+5. ✅ Align **typography** by exposing `--plmsys-font-family` and
+   `--plmsys-font-family-mono` and applying them to body, headings, controls,
+   buttons and FAB widgets.
+6. ✅ Move the shell layout CSS (header, nav panel, location bar, tiles, KPIs)
+   into the same file and add responsive rules.
+7. ✅ Update `tests/test_theme.py` to assert the file exists, is served, is
+   linked after FAB's base CSS, and overrides the core components via custom
+   properties.
+
+**Deliverable:** ✅ a single Bootstrap-compliant stylesheet that fully matches
+shell and FAB colours/fonts. **Note:** custom app assets now live under
+`app/templates/static/` (uploads follow it); revert to the conventional
+`app/static/` by changing one `static_folder` argument and the paths in
+`config.py` if preferred.
 
 ### UI-1 — Object page
 
@@ -555,6 +589,11 @@ Ordered so each phase yields a usable improvement. Phases are independent of
 - **Base layout**: override the FAB Jinja blocks
   (`head_css`, `navbar`, `content`, `tail_js`) via
   `app/templates/base_layout.html`; call `{{ super() }}` where extending.
+- **Theme / stylesheet**: app CSS lives in
+  `app/templates/static/plmsys.css` (served at `/static/plmsys.css`). It is
+  loaded in the `head_css` block *after* `{{ super() }}` so it overrides FAB's
+  Bootstrap 3 theme. Target Bootstrap 3 class names, keep colours/fonts as
+  `--plmsys-*` custom properties, and never re-introduce CSS into `config.py`.
 - **Home**: subclass `IndexView` and set `FAB_INDEX_VIEW` (or
   `indexview=` to `AppBuilder`). Keep `index_template` under `app/templates/`.
 - **Custom pages**: subclass `BaseView`; expose routes with `@expose` and guard

@@ -1,0 +1,892 @@
+/* ============================================================================
+ * PLMSys theme — shared stylesheet
+ * ----------------------------------------------------------------------------
+ * Single source of truth for the PLMSys palette and typography. It is loaded
+ * AFTER Flask-AppBuilder's Bootstrap 3 base theme (see
+ * app/templates/base_layout.html, `head_css`), so it can recolour FAB's core
+ * components (buttons, panels, tables, forms, nav, dropdowns, pagination,
+ * labels, badges, alerts, modals, …) to match the PLMSys shell.
+ *
+ * Loaded from: app/templates/static/plmsys.css (served at /static/plmsys.css).
+ *
+ * Conventions:
+ *   - All colours live as custom properties in :root. Change the palette here,
+ *     not in component rules.
+ *   - Selectors target the Bootstrap 3 classes FAB actually emits. No
+ *     framework variables are recompiled, so keep rules specific and additive.
+ *   - Shell-specific classes are prefixed `.plmsys-`.
+ * ==========================================================================*/
+
+:root {
+    /* Palette (mirrors the former config.PLMSYS_COLORS) */
+    --plmsys-primary: #1f6feb;
+    --plmsys-primary-hover: #1a5fd0;
+    --plmsys-primary-soft: rgba(31, 111, 235, 0.15);
+    --plmsys-nav-bg: #2a3542;
+    --plmsys-nav-bg-dark: #22303f;
+    --plmsys-nav-hover: #2f4054;
+    --plmsys-nav-text: #cdd7e0;
+    --plmsys-nav-text-strong: #ffffff;
+    --plmsys-nav-heading: #7f8fa0;
+    --plmsys-header-search-bg: #3b4859;
+    --plmsys-header-search-text: #eef3f8;
+    --plmsys-header-search-muted: #9aa7b4;
+    --plmsys-body-bg: #f4f6f9;
+    --plmsys-surface: #ffffff;
+    --plmsys-surface-alt: #f8fafc;
+    --plmsys-text: #1f2933;
+    --plmsys-muted: #7c8794;
+    --plmsys-border: #e2e8f0;
+    --plmsys-success: #2e7d32;
+    --plmsys-info: #0b7285;
+    --plmsys-warning: #b26a00;
+    --plmsys-danger: #c62828;
+
+    /* Typography shared by the shell and every FAB component */
+    --plmsys-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+    --plmsys-font-family-mono: "SFMono-Regular", Consolas, "Liberation Mono",
+        Menlo, Courier, monospace;
+    --plmsys-font-size-base: 14px;
+    --plmsys-line-height-base: 1.42857143;
+
+    /* Shell metrics */
+    --plmsys-nav-width: 240px;
+    --plmsys-header-height: 52px;
+    --plmsys-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base & typography
+ * ------------------------------------------------------------------------ */
+
+html {
+    font-size: 100%;
+}
+
+body {
+    background-color: var(--plmsys-body-bg);
+    color: var(--plmsys-text);
+    font-family: var(--plmsys-font-family);
+    font-size: var(--plmsys-font-size-base);
+    line-height: var(--plmsys-line-height-base);
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    color: var(--plmsys-text);
+    font-family: var(--plmsys-font-family);
+    font-weight: 600;
+}
+
+code, kbd, pre, samp {
+    font-family: var(--plmsys-font-family-mono);
+}
+
+small, .small, .help-block {
+    color: var(--plmsys-muted);
+}
+
+a {
+    color: var(--plmsys-primary);
+}
+
+a:hover, a:focus {
+    color: var(--plmsys-primary-hover);
+}
+
+hr {
+    border-top-color: var(--plmsys-border);
+}
+
+/* Selection colour, to match the shell. */
+::selection {
+    background: var(--plmsys-primary-soft);
+    color: var(--plmsys-text);
+}
+
+/* ---------------------------------------------------------------------------
+ * Buttons (Bootstrap 3 variants)
+ * ------------------------------------------------------------------------ */
+
+.btn {
+    font-family: var(--plmsys-font-family);
+    border-radius: var(--plmsys-radius);
+}
+
+.btn-primary {
+    background-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary);
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active,
+.btn-primary.active, .btn-primary:active:focus,
+.open > .dropdown-toggle.btn-primary,
+.open > .dropdown-toggle.btn-primary:hover,
+.open > .dropdown-toggle.btn-primary:focus {
+    background-color: var(--plmsys-primary-hover);
+    border-color: var(--plmsys-primary-hover);
+}
+
+.btn-primary.disabled, .btn-primary[disabled],
+fieldset[disabled] .btn-primary,
+.btn-primary.disabled:hover, .btn-primary[disabled]:hover,
+fieldset[disabled] .btn-primary:hover {
+    background-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary);
+    opacity: 0.65;
+}
+
+.btn-link {
+    color: var(--plmsys-primary);
+}
+
+.btn-link:hover, .btn-link:focus {
+    color: var(--plmsys-primary-hover);
+}
+
+.btn-default {
+    color: var(--plmsys-text);
+    border-color: var(--plmsys-border);
+}
+
+.btn-default:hover, .btn-default:focus, .btn-default:active,
+.btn-default.active, .open > .dropdown-toggle.btn-default {
+    color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border);
+}
+
+.btn-success { background-color: var(--plmsys-success); border-color: var(--plmsys-success); }
+.btn-info { background-color: var(--plmsys-info); border-color: var(--plmsys-info); }
+.btn-warning { background-color: var(--plmsys-warning); border-color: var(--plmsys-warning); }
+.btn-danger { background-color: var(--plmsys-danger); border-color: var(--plmsys-danger); }
+
+.btn-primary .badge {
+    color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface);
+}
+
+/* ---------------------------------------------------------------------------
+ * Panels
+ * ------------------------------------------------------------------------ */
+
+.panel {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius);
+    box-shadow: none;
+}
+
+.panel-default > .panel-heading {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border);
+    color: var(--plmsys-text);
+}
+
+.panel-heading {
+    border-radius: calc(var(--plmsys-radius) - 1px);
+}
+
+.panel-title {
+    font-weight: 600;
+}
+
+.panel-title > a {
+    color: inherit;
+}
+
+.panel-footer {
+    background-color: var(--plmsys-surface-alt);
+    border-top-color: var(--plmsys-border);
+}
+
+.panel-primary { border-color: var(--plmsys-primary); }
+.panel-primary > .panel-heading {
+    background-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary);
+    color: #fff;
+}
+.panel-success { border-color: var(--plmsys-success); }
+.panel-success > .panel-heading {
+    background-color: var(--plmsys-success); border-color: var(--plmsys-success); color: #fff;
+}
+.panel-info { border-color: var(--plmsys-info); }
+.panel-info > .panel-heading {
+    background-color: var(--plmsys-info); border-color: var(--plmsys-info); color: #fff;
+}
+.panel-warning { border-color: var(--plmsys-warning); }
+.panel-warning > .panel-heading {
+    background-color: var(--plmsys-warning); border-color: var(--plmsys-warning); color: #fff;
+}
+.panel-danger { border-color: var(--plmsys-danger); }
+.panel-danger > .panel-heading {
+    background-color: var(--plmsys-danger); border-color: var(--plmsys-danger); color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tables
+ * ------------------------------------------------------------------------ */
+
+.table {
+    color: var(--plmsys-text);
+    font-family: var(--plmsys-font-family);
+}
+
+.table > thead > tr > th {
+    border-bottom-color: var(--plmsys-border);
+    font-weight: 600;
+}
+
+.table > thead > tr > th,
+.table > thead > tr > td,
+.table > tbody > tr > th,
+.table > tbody > tr > td,
+.table > tfoot > tr > th,
+.table > tfoot > tr > td {
+    border-top-color: var(--plmsys-border);
+}
+
+.table > tbody > tr > td,
+.table > tbody > tr > th {
+    vertical-align: middle;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: var(--plmsys-surface-alt);
+}
+
+.table-hover > tbody > tr:hover {
+    background-color: var(--plmsys-surface-alt);
+}
+
+.table-bordered,
+.table-bordered > thead > tr > th,
+.table-bordered > thead > tr > td,
+.table-bordered > tbody > tr > th,
+.table-bordered > tbody > tr > td,
+.table-bordered > tfoot > tr > th,
+.table-bordered > tfoot > tr > td {
+    border-color: var(--plmsys-border);
+}
+
+.table > tbody > tr.active > td,
+.table > tbody > tr.active > th {
+    background-color: var(--plmsys-primary-soft);
+}
+
+/* ---------------------------------------------------------------------------
+ * Forms, inputs and the FAB widgets built on them (select2, datepicker)
+ * ------------------------------------------------------------------------ */
+
+.form-control {
+    color: var(--plmsys-text);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius);
+    box-shadow: none;
+    font-family: var(--plmsys-font-family);
+}
+
+.form-control:focus {
+    border-color: var(--plmsys-primary);
+    box-shadow: 0 0 0 2px var(--plmsys-primary-soft);
+}
+
+.form-control[disabled], .form-control[readonly],
+fieldset[disabled] .form-control {
+    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-muted);
+}
+
+.control-label, .checkbox label, .radio label {
+    color: var(--plmsys-text);
+}
+
+.input-group-addon {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border);
+    color: var(--plmsys-muted);
+}
+
+.has-success .form-control { border-color: var(--plmsys-success); }
+.has-success .help-block,
+.has-success .control-label,
+.has-success .checkbox,
+.has-success .radio { color: var(--plmsys-success); }
+.has-warning .form-control { border-color: var(--plmsys-warning); }
+.has-warning .help-block,
+.has-warning .control-label { color: var(--plmsys-warning); }
+.has-error .form-control { border-color: var(--plmsys-danger); }
+.has-error .help-block,
+.has-error .control-label { color: var(--plmsys-danger); }
+
+/* select2 (used by FAB for relation pickers) */
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius);
+}
+
+.select2-container--default.select2-container--focus .select2-selection--multiple,
+.select2-container--default.select2-container--open .select2-selection--single {
+    border-color: var(--plmsys-primary);
+    box-shadow: 0 0 0 2px var(--plmsys-primary-soft);
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: var(--plmsys-primary);
+}
+
+.select2-dropdown {
+    border-color: var(--plmsys-border);
+    font-family: var(--plmsys-font-family);
+}
+
+/* ---------------------------------------------------------------------------
+ * Navigation: navbar, navs/tabs/pills
+ * ------------------------------------------------------------------------ */
+
+.navbar-default {
+    background-color: var(--plmsys-nav-bg);
+    border-color: var(--plmsys-nav-bg-dark);
+    font-family: var(--plmsys-font-family);
+}
+
+.navbar-default .navbar-brand,
+.navbar-default .navbar-nav > li > a {
+    color: var(--plmsys-nav-text);
+}
+
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus {
+    color: var(--plmsys-nav-text-strong);
+    background-color: var(--plmsys-nav-hover);
+}
+
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus,
+.navbar-default .navbar-nav > .open > a,
+.navbar-default .navbar-nav > .open > a:hover,
+.navbar-default .navbar-nav > .open > a:focus {
+    background-color: var(--plmsys-nav-bg-dark);
+    color: var(--plmsys-nav-text-strong);
+}
+
+.navbar-default .navbar-toggle {
+    border-color: var(--plmsys-nav-hover);
+}
+
+.navbar-default .navbar-toggle .icon-bar {
+    background-color: var(--plmsys-nav-text);
+}
+
+.nav > li > a {
+    color: var(--plmsys-text);
+}
+
+.nav > li > a:hover, .nav > li > a:focus {
+    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-primary);
+}
+
+.nav-tabs {
+    border-bottom-color: var(--plmsys-border);
+}
+
+.nav-tabs > li > a {
+    border-radius: var(--plmsys-radius) var(--plmsys-radius) 0 0;
+    color: var(--plmsys-muted);
+}
+
+.nav-tabs > li > a:hover {
+    border-color: var(--plmsys-border) var(--plmsys-border) transparent;
+    color: var(--plmsys-primary);
+}
+
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:hover,
+.nav-tabs > li.active > a:focus {
+    color: var(--plmsys-text);
+    border-color: var(--plmsys-border) var(--plmsys-border) transparent;
+    border-top: 2px solid var(--plmsys-primary);
+}
+
+.nav-pills > li.active > a,
+.nav-pills > li.active > a:hover,
+.nav-pills > li.active > a:focus {
+    background-color: var(--plmsys-primary);
+    color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dropdowns
+ * ------------------------------------------------------------------------ */
+
+.dropdown-menu {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    font-family: var(--plmsys-font-family);
+}
+
+.dropdown-menu > li > a,
+.dropdown-menu > li > span {
+    color: var(--plmsys-text);
+}
+
+.dropdown-menu > li > a:hover,
+.dropdown-menu > li > a:focus {
+    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-primary);
+}
+
+.dropdown-menu > .active > a,
+.dropdown-menu > .active > a:hover,
+.dropdown-menu > .active > a:focus {
+    background-color: var(--plmsys-primary);
+    color: #fff;
+}
+
+.dropdown-menu > .disabled > a {
+    color: var(--plmsys-muted);
+}
+
+.dropdown-header {
+    color: var(--plmsys-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Pagination
+ * ------------------------------------------------------------------------ */
+
+.pagination > li > a,
+.pagination > li > span {
+    color: var(--plmsys-primary);
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+}
+
+.pagination > li > a:hover,
+.pagination > li > span:hover,
+.pagination > li > a:focus,
+.pagination > li > span:focus {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-border);
+    color: var(--plmsys-primary-hover);
+}
+
+.pagination > .active > a,
+.pagination > .active > a:hover,
+.pagination > .active > a:focus,
+.pagination > .active > span {
+    background-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary);
+    color: #fff;
+}
+
+.pagination > .disabled > a,
+.pagination > .disabled > span {
+    color: var(--plmsys-muted);
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+}
+
+/* ---------------------------------------------------------------------------
+ * Labels, badges, progress, alerts
+ * ------------------------------------------------------------------------ */
+
+.label-primary, .badge {
+    background-color: var(--plmsys-primary);
+}
+
+.label-success { background-color: var(--plmsys-success); }
+.label-info { background-color: var(--plmsys-info); }
+.label-warning { background-color: var(--plmsys-warning); }
+.label-danger { background-color: var(--plmsys-danger); }
+.label-default {
+    background-color: var(--plmsys-muted);
+}
+
+.progress {
+    background-color: var(--plmsys-surface-alt);
+    box-shadow: none;
+}
+
+.progress-bar {
+    background-color: var(--plmsys-primary);
+}
+
+.alert {
+    border-radius: var(--plmsys-radius);
+}
+
+.alert-info {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-info);
+    color: var(--plmsys-info);
+}
+
+.alert-success {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-success);
+    color: var(--plmsys-success);
+}
+
+.alert-warning {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-warning);
+    color: var(--plmsys-warning);
+}
+
+.alert-danger {
+    background-color: var(--plmsys-surface-alt);
+    border-color: var(--plmsys-danger);
+    color: var(--plmsys-danger);
+}
+
+/* ---------------------------------------------------------------------------
+ * Wells, list groups, breadcrumbs, modals, popovers
+ * ------------------------------------------------------------------------ */
+
+.well {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius);
+    box-shadow: none;
+}
+
+.list-group-item {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    color: var(--plmsys-text);
+}
+
+.list-group-item-heading {
+    color: var(--plmsys-text);
+}
+
+a.list-group-item:hover,
+a.list-group-item:focus {
+    background-color: var(--plmsys-surface-alt);
+    color: var(--plmsys-primary);
+}
+
+.list-group-item.active,
+.list-group-item.active:hover,
+.list-group-item.active:focus {
+    background-color: var(--plmsys-primary);
+    border-color: var(--plmsys-primary);
+}
+
+.breadcrumb {
+    background-color: var(--plmsys-surface-alt);
+    border-radius: var(--plmsys-radius);
+}
+
+.breadcrumb > li + li:before {
+    color: var(--plmsys-muted);
+}
+
+.breadcrumb > .active {
+    color: var(--plmsys-muted);
+}
+
+.modal-content {
+    background-color: var(--plmsys-surface);
+    border-color: var(--plmsys-border);
+    border-radius: var(--plmsys-radius);
+}
+
+.modal-header, .modal-footer {
+    border-color: var(--plmsys-border);
+}
+
+.popover {
+    border-color: var(--plmsys-border);
+    font-family: var(--plmsys-font-family);
+}
+
+.popover-title {
+    background-color: var(--plmsys-surface-alt);
+    border-bottom-color: var(--plmsys-border);
+}
+
+.tooltip {
+    font-family: var(--plmsys-font-family);
+}
+
+/* ---------------------------------------------------------------------------
+ * Utilities
+ * ------------------------------------------------------------------------ */
+
+.text-primary { color: var(--plmsys-primary) !important; }
+.text-success { color: var(--plmsys-success) !important; }
+.text-info { color: var(--plmsys-info) !important; }
+.text-warning { color: var(--plmsys-warning) !important; }
+.text-danger { color: var(--plmsys-danger) !important; }
+.text-muted { color: var(--plmsys-muted) !important; }
+
+.bg-primary { background-color: var(--plmsys-primary) !important; }
+.bg-success { background-color: var(--plmsys-success) !important; }
+.bg-info { background-color: var(--plmsys-info) !important; }
+.bg-warning { background-color: var(--plmsys-warning) !important; }
+.bg-danger { background-color: var(--plmsys-danger) !important; }
+
+blockquote {
+    border-left-color: var(--plmsys-border);
+    color: var(--plmsys-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * FAB app shell — layout
+ * ------------------------------------------------------------------------ */
+
+.plmsys-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: var(--plmsys-header-height);
+    padding: 0 16px;
+    background: var(--plmsys-nav-bg);
+    color: var(--plmsys-nav-text);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    font-family: var(--plmsys-font-family);
+}
+
+.plmsys-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--plmsys-nav-text-strong);
+    font-size: 17px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.plmsys-brand:hover, .plmsys-brand:focus {
+    color: var(--plmsys-nav-text-strong);
+    text-decoration: none;
+}
+
+.plmsys-search {
+    position: relative;
+    flex: 1 1 auto;
+    max-width: 520px;
+}
+
+.plmsys-search .fa-search {
+    position: absolute;
+    left: 10px;
+    top: 9px;
+    color: var(--plmsys-header-search-muted);
+}
+
+.plmsys-search input {
+    width: 100%;
+    border: 0;
+    border-radius: var(--plmsys-radius);
+    padding: 7px 10px 7px 32px;
+    background: var(--plmsys-header-search-bg);
+    color: var(--plmsys-header-search-text);
+    outline: none;
+    font-family: var(--plmsys-font-family);
+}
+
+.plmsys-search input::placeholder {
+    color: var(--plmsys-header-search-muted);
+}
+
+.plmsys-ctx {
+    color: var(--plmsys-nav-text);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.plmsys-user {
+    margin: 0;
+}
+
+.plmsys-user > li > a {
+    color: var(--plmsys-nav-text);
+}
+
+.plmsys-user > li > a:hover, .plmsys-user > li > a:focus,
+.plmsys-user > li.open > a {
+    color: var(--plmsys-nav-text-strong);
+    background: var(--plmsys-nav-hover);
+}
+
+.plmsys-shell {
+    display: flex;
+    padding-top: var(--plmsys-header-height);
+    min-height: 100vh;
+}
+
+.plmsys-nav {
+    width: var(--plmsys-nav-width);
+    flex: 0 0 var(--plmsys-nav-width);
+    background: var(--plmsys-nav-bg-dark);
+    padding: 12px 0;
+    min-height: calc(100vh - var(--plmsys-header-height));
+    font-family: var(--plmsys-font-family);
+}
+
+.plmsys-nav a {
+    color: var(--plmsys-nav-text);
+    text-decoration: none;
+    display: block;
+}
+
+.plmsys-nav a:hover, .plmsys-nav a:focus {
+    color: var(--plmsys-nav-text-strong);
+    background: var(--plmsys-nav-hover);
+}
+
+.plmsys-nav-item {
+    padding: 7px 16px;
+    font-weight: 600;
+}
+
+.plmsys-nav-heading {
+    padding: 14px 16px 4px;
+    color: var(--plmsys-nav-heading);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.plmsys-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.plmsys-nav-list a {
+    padding: 6px 16px 6px 24px;
+    font-size: 13px;
+}
+
+.plmsys-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 24px 48px;
+}
+
+.plmsys-location {
+    margin: 0 -24px 18px;
+    padding: 9px 24px;
+    background: var(--plmsys-surface);
+    border-bottom: 1px solid var(--plmsys-border);
+    color: var(--plmsys-muted);
+    font-size: 13px;
+}
+
+.plmsys-location a {
+    color: var(--plmsys-muted);
+}
+
+.plmsys-footer {
+    margin-left: var(--plmsys-nav-width);
+    padding: 12px 24px;
+    color: var(--plmsys-muted);
+    font-size: 12px;
+}
+
+/* Home tiles / KPIs */
+.plmsys-tile {
+    background: var(--plmsys-surface);
+    border: 1px solid var(--plmsys-border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+    height: 100%;
+}
+
+.plmsys-tile h4 {
+    margin: 0 0 6px;
+}
+
+a.plmsys-tile {
+    display: block;
+    color: var(--plmsys-text);
+    text-decoration: none;
+}
+
+a.plmsys-tile:hover {
+    border-color: var(--plmsys-primary);
+    text-decoration: none;
+}
+
+.plmsys-kpi {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--plmsys-primary);
+    line-height: 1.1;
+}
+
+.plmsys-muted {
+    color: var(--plmsys-muted);
+    font-size: 12px;
+}
+
+.plmsys-hero {
+    margin-bottom: 20px;
+}
+
+.plmsys-hero h1 {
+    margin-top: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsive: collapse the nav rail and stack the data panes on small screens
+ * ------------------------------------------------------------------------ */
+
+@media (max-width: 991px) {
+    :root {
+        --plmsys-nav-width: 64px;
+    }
+
+    .plmsys-nav-item,
+    .plmsys-nav-heading,
+    .plmsys-nav-list a {
+        padding-left: 18px;
+        padding-right: 12px;
+    }
+
+    .plmsys-nav-heading {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+}
+
+@media (max-width: 767px) {
+    .plmsys-nav {
+        display: none;
+    }
+
+    .plmsys-main {
+        padding: 0 12px 32px;
+    }
+
+    .plmsys-location {
+        margin: 0 -12px 14px;
+        padding: 8px 12px;
+    }
+
+    .plmsys-footer {
+        margin-left: 0;
+    }
+
+    .plmsys-search {
+        max-width: none;
+    }
+}

@@ -77,11 +77,13 @@ All application config lives in `config.py`.
   export PLMSYS_DATABASE_URI="postgresql://user:password@localhost/plmsys"
   ```
 
-- **Colour schema** — `PLMSYS_COLORS` is the single source of truth for the UI
-  palette. `PLMSYS_THEME_CSS` turns it into CSS custom properties plus Bootstrap
-  overrides, injected by `app/templates/base_layout.html`. `APP_THEME` selects
-  the light Bootswatch base (`flatly.css`) that the schema recolours. Changing
-  the palette re-themes both the shell and the FAB components.
+- **Theme** — the palette, typography and FAB/Bootstrap component overrides live
+  in `app/templates/static/plmsys.css` (served at `/static/plmsys.css`) and are
+  linked from `app/templates/base_layout.html` after FAB's base theme.
+  `APP_THEME` selects the light Bootswatch base (`flatly.css`) that the
+  stylesheet recolours. Changing the `--plmsys-*` custom properties re-themes
+  both the shell and every FAB component. App static assets (including future
+  uploads) live under `app/templates/static/`.
 - **Schema ownership** — `FAB_CREATE_DB = False` and `AUTO_CREATE_SCHEMA = False`
   keep schema creation in Alembic. `AUTO_SEED = True` seeds business data once
   the schema is ready.
@@ -143,7 +145,6 @@ app/
 ├── __init__.py           # application factory (migration-first)
 ├── extensions.py         # db, appbuilder, migrate singletons
 ├── models.py             # 21 domain models
-├── seed.py               # idempotent seed data
 ├── security.py           # PLMSecurityManager (roles without schema creation)
 ├── seed.py               # idempotent seed data
 ├── services/             # domain services (revisions, properties, lifecycle, …)
@@ -152,11 +153,13 @@ app/
 │   └── shell.py          # PLMSysIndexView (Home)
 └── templates/
     ├── base_layout.html  # global shell (header, nav panel, location bar)
-    └── index.html        # Home tiles + KPIs
+    ├── index.html        # Home tiles + KPIs
+    └── static/
+        └── plmsys.css    # shared palette, typography + FAB overrides
 migrations/               # Alembic (schema + FK indexes)
 tests/                    # phase0, smoke, theme, security
 └── services/             # service-layer unit tests
-config.py                 # configuration + colour schema
+config.py                 # configuration (DB, auth, theme selection)
 run.py                    # dev launcher (port 5001)
 ```
 
