@@ -54,23 +54,23 @@ def _release_states(session: Session) -> dict[str, ReleaseState]:
 
 def _object_types(session: Session) -> dict[str, ObjectType]:
     # (name, parent name, description)
+    #
+    # Only the *base* business object types are seeded. Earlier revisions of
+    # this file also created paired ``*Revision`` object types
+    # (``RequirementRevision`` etc.), but nothing referenced them: a revision is
+    # typed by its business object's type and carries its attributes through
+    # PropertyValue. They were removed to avoid dead seed data (see the Phase 1
+    # review); reintroduce them together with a real Revision.type FK if a
+    # distinct revision-type hierarchy is ever needed.
     definitions = [
         ("Requirement", None, "A requirement business object."),
-        ("RequirementRevision", "Requirement", "Revision content of a requirement."),
         ("Function", None, "A functional element."),
-        ("FunctionRevision", "Function", "Revision content of a function."),
         ("ArchitectureElement", None, "A logical/physical architecture element."),
-        ("ArchitectureElementRevision", "ArchitectureElement", "Revision content of an architecture element."),
         ("SoftwareComponent", None, "A software component."),
-        ("SoftwareComponentRevision", "SoftwareComponent", "Revision content of a software component."),
         ("Part", None, "A physical part."),
-        ("PartRevision", "Part", "Revision content of a part."),
         ("TestCase", None, "A verification test case."),
-        ("TestCaseRevision", "TestCase", "Revision content of a test case."),
         ("ChangeRequest", None, "An engineering change request."),
-        ("ChangeRequestRevision", "ChangeRequest", "Revision content of a change request."),
         ("Document", None, "A controlled document."),
-        ("DocumentRevision", "Document", "Revision content of a document."),
     ]
     types: dict[str, ObjectType] = {}
     for name, parent_name, description in definitions:
@@ -416,22 +416,24 @@ def seed_data(session: Session) -> bool:
         session.add(BaselineMember(baseline=baseline, revision=revision))
 
     # -- release states -----------------------------------------------------
-    session.add_all(
-        [
+    # Reconcile the canonical lifecycle (RevisionReleaseState) with the
+    # denormalised `status` caches on Revision/BusinessObject so the seeded data
+    # does not start out inconsistent (see `app/services/lifecycle.py`).
+    for revision, state_name in (
+        (req1_revs[1], "Released"),
+        (req2_revs[0], "Approved"),
+        (part_cell_revs[1], "Released"),
+        (test_range_revs[0], "Approved"),
+    ):
+        session.add(
             RevisionReleaseState(
-                revision=req1_revs[1], release_state=states["Released"]
-            ),
-            RevisionReleaseState(
-                revision=req2_revs[0], release_state=states["Approved"]
-            ),
-            RevisionReleaseState(
-                revision=part_cell_revs[1], release_state=states["Released"]
-            ),
-            RevisionReleaseState(
-                revision=test_range_revs[0], release_state=states["Approved"]
-            ),
-        ]
-    )
+                revision=revision, release_state=states[state_name]
+            )
+        )
+        revision.status = state_name
+        business_object = revision.business_object
+        if business_object.current_revision is revision:
+            business_object.status = state_name
 
     # -- verification -------------------------------------------------------
     session.add(

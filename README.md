@@ -17,13 +17,17 @@ Delivered so far:
 
 - 21 domain models, an idempotent seed data set (118 rows) and 21 bootstrap
   `ModelView`s.
+- **Domain services** (`app/services/`) — revision branching/lineage, typed
+  metadata-driven properties, the release lifecycle state machine, and
+  relationship traversal. Views will call these in later phases.
 - **Migration-first schema** — Alembic owns all tables; the app never creates
   tables at runtime. FAB security roles/permissions are bootstrapped on start.
 - **Task-oriented UI shell (UI-0)** — global header, left navigation panel,
   location bar, Home page with KPI/entry tiles, and a config-driven Bootstrap
   colour schema.
-- **Test suite** — 20 pytest tests covering seeds, the shell, the colour schema
-  and the migration workflow.
+- **Test suite** — 73 pytest tests covering seeds, the shell, the colour schema,
+  the migration workflow, route-level access control and the service layer
+  (including the `PropertyDataType` coercion matrix).
 
 The Object page, global search, personal context and Structure Manager arrive in
 later phases.
@@ -112,7 +116,7 @@ flask db downgrade                           # roll back one migration
 `app/seed.py` populates a representative EV-battery programme and is safe to run
 repeatedly. Highlights:
 
-- 16 object types; 13 business objects (`REQ-*`, `PART-*`, `FUNC-*`, `ARCH-*`,
+- 8 object types; 13 business objects (`REQ-*`, `PART-*`, `FUNC-*`, `ARCH-*`,
   `SWC-*`, `TEST-*`, `CR-*`, `DOC-*`) with 15 revisions.
 - 8 property definitions and 15 typed property values.
 - 8 relationship types and 11 traceability links (decomposition, allocation,
@@ -129,7 +133,8 @@ uv run pytest
 The suite builds a temporary database and creates the schema from metadata
 (`AUTO_CREATE_SCHEMA`), and separately verifies that `flask db upgrade` alone
 produces the full schema and is idempotent. It also checks the seed counts, the
-UI shell/menu behaviour and the colour schema.
+UI shell/menu behaviour, route-level access control and the colour schema, and
+unit-tests the domain services.
 
 ## Project layout
 
@@ -140,14 +145,17 @@ app/
 ├── models.py             # 21 domain models
 ├── seed.py               # idempotent seed data
 ├── security.py           # PLMSecurityManager (roles without schema creation)
+├── seed.py               # idempotent seed data
+├── services/             # domain services (revisions, properties, lifecycle, …)
 ├── views.py              # ModelViews + task-oriented menu
 ├── ui/
 │   └── shell.py          # PLMSysIndexView (Home)
 └── templates/
     ├── base_layout.html  # global shell (header, nav panel, location bar)
     └── index.html        # Home tiles + KPIs
-migrations/               # Alembic (initial schema: 33 tables)
-tests/                    # conftest, test_phase0, test_smoke, test_theme
+migrations/               # Alembic (schema + FK indexes)
+tests/                    # phase0, smoke, theme, security
+└── services/             # service-layer unit tests
 config.py                 # configuration + colour schema
 run.py                    # dev launcher (port 5001)
 ```

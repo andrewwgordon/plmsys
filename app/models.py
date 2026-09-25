@@ -96,7 +96,7 @@ class ObjectType(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(120), unique=True, nullable=False)
-    parent_type_id = Column(Integer, ForeignKey("object_type.id"))
+    parent_type_id = Column(Integer, ForeignKey("object_type.id"), index=True)
     description = Column(Text)
 
     parent_type = relationship(
@@ -122,12 +122,16 @@ class BusinessObject(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     object_type_id = Column(
-        Integer, ForeignKey("object_type.id"), nullable=False
+        Integer, ForeignKey("object_type.id"), nullable=False, index=True
     )
     object_number = Column(String(120), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    current_revision_id = Column(Integer, ForeignKey("revision.id"))
+    current_revision_id = Column(Integer, ForeignKey("revision.id"), index=True)
+    # Denormalised mirror of the *current revision's* lifecycle state. The
+    # canonical lifecycle state lives in RevisionReleaseState / ReleaseState;
+    # this column is kept in sync by ``services.lifecycle`` and is safe to read
+    # for cheap list rendering.
     status = Column(String(40), default="Draft", nullable=False)
 
     object_type = relationship(
@@ -163,12 +167,14 @@ class Revision(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     object_id = Column(
-        Integer, ForeignKey("business_object.id"), nullable=False
+        Integer, ForeignKey("business_object.id"), nullable=False, index=True
     )
     revision_id = Column(String(40), nullable=False)
     sequence_no = Column(Integer, default=1, nullable=False)
     title = Column(String(255))
     description = Column(Text)
+    # Denormalised cache of the latest ``RevisionReleaseState``/``ReleaseState``
+    # (see ``services.lifecycle``); never mutate directly outside that service.
     status = Column(String(40), default="Draft", nullable=False)
 
     business_object = relationship(
@@ -237,7 +243,7 @@ class PropertyDefinition(TimestampMixin, Model):
     id = Column(Integer, primary_key=True)
     name = Column(String(120), nullable=False)
     object_type_id = Column(
-        Integer, ForeignKey("object_type.id"), nullable=False
+        Integer, ForeignKey("object_type.id"), nullable=False, index=True
     )
     data_type = Column(
         SAEnum(
@@ -280,10 +286,10 @@ class PropertyValue(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     property_definition_id = Column(
-        Integer, ForeignKey("property_definition.id"), nullable=False
+        Integer, ForeignKey("property_definition.id"), nullable=False, index=True
     )
     string_value = Column(Text)
     integer_value = Column(Integer)
@@ -338,13 +344,13 @@ class Relationship(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     relationship_type_id = Column(
-        Integer, ForeignKey("relationship_type.id"), nullable=False
+        Integer, ForeignKey("relationship_type.id"), nullable=False, index=True
     )
     primary_revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     secondary_revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
 
     relationship_type = relationship(
@@ -377,10 +383,10 @@ class BOMOccurrence(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     parent_revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     child_revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     find_number = Column(String(40))
     quantity = Column(Float, default=1.0, nullable=False)
@@ -408,10 +414,10 @@ class OccurrenceTrace(Model):
 
     id = Column(Integer, primary_key=True)
     requirement_revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     bom_occurrence_id = Column(
-        Integer, ForeignKey("bom_occurrence.id"), nullable=False
+        Integer, ForeignKey("bom_occurrence.id"), nullable=False, index=True
     )
     created_on = Column(DateTime, default=utcnow, nullable=False)
 
@@ -455,7 +461,7 @@ class ConfigurationContext(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     revision_rule_id = Column(
-        Integer, ForeignKey("revision_rule.id"), nullable=False
+        Integer, ForeignKey("revision_rule.id"), nullable=False, index=True
     )
     name = Column(String(120), nullable=False)
     description = Column(Text)
@@ -480,7 +486,7 @@ class Baseline(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     configuration_context_id = Column(
-        Integer, ForeignKey("configuration_context.id"), nullable=False
+        Integer, ForeignKey("configuration_context.id"), nullable=False, index=True
     )
     name = Column(String(120), nullable=False)
     description = Column(Text)
@@ -507,7 +513,7 @@ class BaselineMember(Model):
         Integer, ForeignKey("baseline.id"), primary_key=True
     )
     revision_id = Column(
-        Integer, ForeignKey("revision.id"), primary_key=True
+        Integer, ForeignKey("revision.id"), primary_key=True, index=True
     )
     created_on = Column(DateTime, default=utcnow, nullable=False)
 
@@ -530,7 +536,7 @@ class Dataset(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     dataset_type = Column(String(80))
     name = Column(String(255), nullable=False)
@@ -553,7 +559,7 @@ class ManagedFile(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     dataset_id = Column(
-        Integer, ForeignKey("dataset.id"), nullable=False
+        Integer, ForeignKey("dataset.id"), nullable=False, index=True
     )
     file_name = Column(String(255), nullable=False)
     mime_type = Column(String(120))
@@ -599,7 +605,7 @@ class RevisionReleaseState(Model):
         Integer, ForeignKey("revision.id"), primary_key=True
     )
     release_state_id = Column(
-        Integer, ForeignKey("release_state.id"), primary_key=True
+        Integer, ForeignKey("release_state.id"), primary_key=True, index=True
     )
     assigned_on = Column(DateTime, default=utcnow, nullable=False)
 
@@ -624,7 +630,7 @@ class VerificationResult(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     test_revision_id = Column(
-        Integer, ForeignKey("revision.id"), nullable=False
+        Integer, ForeignKey("revision.id"), nullable=False, index=True
     )
     execution_date = Column(Date)
     result = Column(String(40))
@@ -671,9 +677,9 @@ class WorkflowTask(TimestampMixin, Model):
 
     id = Column(Integer, primary_key=True)
     process_id = Column(
-        Integer, ForeignKey("workflow_process.id"), nullable=False
+        Integer, ForeignKey("workflow_process.id"), nullable=False, index=True
     )
-    revision_id = Column(Integer, ForeignKey("revision.id"))
+    revision_id = Column(Integer, ForeignKey("revision.id"), index=True)
     task_name = Column(String(255), nullable=False)
     task_state = Column(String(40), default="Open", nullable=False)
     due_date = Column(Date)

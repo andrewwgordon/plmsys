@@ -104,7 +104,7 @@
                 <i class="fa fa-fw fa-home"></i> {{ _('Home') }}
             </a>
             {% for item in appbuilder.menu.get_list() %}
-                {% if item | is_menu_visible %}
+                {% if (item | is_menu_visible) and item.should_render() %}
                     <div class="plmsys-nav-group">
                         <div class="plmsys-nav-heading">
                             {% if item.icon %}<i class="fa fa-fw {{ item.icon }}"></i>{% endif %}
@@ -112,7 +112,7 @@
                         </div>
                         <ul class="plmsys-nav-list">
                             {% for child in item.childs %}
-                                {% if child and child.name != '-' and child | is_menu_visible %}
+                                {% if child and child.name != '-' and (child | is_menu_visible) and child.should_render() %}
                                     <li>
                                         <a href="{{ child.get_url() }}">
                                             <i class="fa fa-fw {{ child.icon }}"></i>

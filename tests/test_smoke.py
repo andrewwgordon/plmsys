@@ -4,7 +4,7 @@ from app.extensions import db
 from app.seed import seed_data
 
 EXPECTED_COUNTS = {
-    "ObjectType": 16,
+    "ObjectType": 8,
     "BusinessObject": 13,
     "Revision": 15,
     "RevisionLineage": 2,
@@ -43,7 +43,7 @@ def test_seed_is_idempotent(app):
 
     with app.app_context():
         assert seed_data(db.session) is False
-        assert db.session.query(models.ObjectType).count() == 16
+        assert db.session.query(models.ObjectType).count() == 8
 
 
 def test_home_page_is_public(client):

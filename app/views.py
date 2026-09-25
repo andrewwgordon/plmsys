@@ -5,6 +5,7 @@ Business logic (revision creation, workflow transitions, etc.) is intentionally
 out of scope here -- these views provide initial CRUD over the scaffold.
 """
 
+from flask import g
 from flask_appbuilder import ModelView
 from flask_appbuilder.models.sqla.filters import FilterEqual
 from flask_appbuilder.models.sqla.interface import SQLAInterface
@@ -517,7 +518,14 @@ class WorkflowProcessModelView(ModelView):
 
 
 def _is_admin() -> bool:
-    """Menu guard: show administration items only to administrators."""
+    """Menu guard: show administration items only to administrators.
+
+    Used as ``menu_cond`` on the Setup views. The custom shell evaluates
+    ``MenuItem.should_render()`` (which invokes this) in addition to FAB's
+    ``menu_access`` permission check, so this is defence in depth: the Setup
+    *routes* are already protected by FAB permissions (non-admins receive 403),
+    and this keeps the menu itself free of the heading for non-admins.
+    """
     try:
         return bool(
             g.user
